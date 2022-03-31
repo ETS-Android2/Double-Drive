@@ -24,7 +24,7 @@ public class ManagerTest {
     @Test
     public void funcDelay() {
         //Simple example displaying basic functionality
-        int i = 1;
+//        int i = 1;
                 funcDelayManager.exec(TestClassEnum.UTILTEST) //Notice the parameter is automatically passed
                 //^ This call has a 5000ms sleep. Because of the concurrency annotation, the below
                 //  call will still proceed and will be completed first.

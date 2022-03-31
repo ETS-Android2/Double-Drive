@@ -100,13 +100,14 @@ public class RobotUtils {
         rightB.setPower(0);
     }
 
-    @Concurrent //(
-      //  behavior = ConcE.BLOCKING
-    //)
+    @Concurrent
     static void testPrint(@Supplied Integer i) {
         System.out.println("this works!" +i);
     }
-    @Concurrent
+
+    @Concurrent //(
+    //  behavior = ConcE.BLOCKING
+    //)
     static void testPrintDelay(@Supplied Integer i) {
         System.out.println("Delaying 5000ms...");
         try {

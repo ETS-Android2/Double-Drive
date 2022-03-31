@@ -25,11 +25,6 @@ import java.util.function.Predicate;
 //K allows the user to refer to the functions by anything they please. Enums allow implementations
 //to be easily swapped out for one another, or even mixed and matched
 
-//EXIT STATUSES: TODO: (use these over assertions?)
-// 10: Method to add cannot be found
-// 11: Method does not have a Behavior annotation
-// 12: @args@ provided does not equal arguments required for the @Method@, as determined
-//     by the @@Supplied@ annotations
 public final class Manager<K extends ToMethod> {
     private final Comparator<Class<?>>      classComparator = Comparator.comparing(Class::getCanonicalName);
     private final Comparator<K>             enumComparator  = Comparator.comparing(Objects::hashCode);
@@ -55,7 +50,12 @@ public final class Manager<K extends ToMethod> {
     }
 
 
-    //automatically supplies arguments
+    /**
+     *
+     * @param method The method passed. Must have a Concurrency annotation.
+     * @param args Manually passed arguments denoted by a lack of a Supplied annotation
+     * @return The Runnable representing the method applied to the arguments
+     */
     private Runnable toRunnable(Method method, Object... args) {
         int parameterCount = method.getParameterCount();
         Class<?>[] paramTypes = method.getParameterTypes();
@@ -77,7 +77,7 @@ public final class Manager<K extends ToMethod> {
                 }
             }
         }
-
+        //Fetch the automatic parameters, erroring if it is unable to find arguments which are Supplied
         for(int i=0; i<parameterCount; i++) {
             params[i] = parameters.get(paramTypes[i]);
             if(Objects.isNull(params[i]) //TreeMap.get will return null when it can't find anything
@@ -93,7 +93,7 @@ public final class Manager<K extends ToMethod> {
             }
         }
 
-        //END COMMON CODE
+        //return the runnable
         if(method.getParameterCount() == 0) {
             return () -> {
                 try {
@@ -131,6 +131,12 @@ public final class Manager<K extends ToMethod> {
 
     }
 
+    /**
+     * Call a function given to the Builder
+     * @param key The function represented by the Manager's K type
+     * @param args The manual arguments
+     * @return Itself
+     */
     public Manager<K> exec(K key, Object... args) {
         Method func = functions.get(key);
         assert func != null;
@@ -156,6 +162,11 @@ public final class Manager<K extends ToMethod> {
         }
     }
 
+    /**
+     * Wait for all given tasks to complete before continuing, allowing a Concurrent function
+     * to wait without being marked as Blocking
+     * @return Itself
+     */
     public Manager<K> await() {
         try {
             pool.shutdown();
@@ -167,29 +178,6 @@ public final class Manager<K extends ToMethod> {
         return this;
     }
 
-//    public Manager<K> addFunc(K key) {
-//        try {
-//            functions.putIfAbsent(key, key.toMethod());
-//        }
-//        catch (NoSuchMethodException e) {
-//            System.err.println("ERROR: Cannot find method associated with key " + key +
-//                    "\n\tPerhaps you need to update your ToMethod instance?");
-//            assert(false);
-////            System.exit(10);
-//        }
-//        return this;
-//    }
-//
-//    public Manager<K> addParameter(Object param) {
-//        if(parameters.containsKey(param.getClass())) {
-//            System.err.println("\n\nERROR: Cannot put more than one automatic argument of the " +
-//                    "same Class into a Manager.");
-//            assert(false);
-//        }
-//        parameters.put(param.getClass(), param);
-//
-//        return this;
-//    }
 
     //**********************************************************************************************
     public static class Builder<T extends ToMethod> {
@@ -206,11 +194,21 @@ public final class Manager<K extends ToMethod> {
             return new Builder<>();
         }
 
+        /**
+         * Set the max number of threads to be used concurrently
+         * @param threads The max number of threads
+         * @return An updated builder
+         */
         public Builder<T> setThreads(int threads) {
             numThreads = threads;
             return this;
         }
 
+        /**
+         * Add a function to the builder to be used by the Manager
+         * @param key The function to add
+         * @return An updated Builder
+         */
         public Builder<T> addFunc(T key) {
             try {
                 functions.putIfAbsent(key, key.toMethod());
@@ -224,6 +222,11 @@ public final class Manager<K extends ToMethod> {
             return this;
         }
 
+        /**
+         * Add an automatically passed parameter
+         * @param param The auto-parameter
+         * @return An updated Builder
+         */
         public Builder<T> addParameter(Object param) {
             if(parameters.containsKey(param.getClass())) {
                 System.err.println("\n\nERROR: Cannot put more than one automatic argument of the " +
@@ -235,6 +238,10 @@ public final class Manager<K extends ToMethod> {
             return this;
         }
 
+        /**
+         * Finalize the Builder, preventing further changes
+         * @return The Manager represented by the Builder
+         */
         public Manager<T> build() {
             return new Manager<>(this);
         }
