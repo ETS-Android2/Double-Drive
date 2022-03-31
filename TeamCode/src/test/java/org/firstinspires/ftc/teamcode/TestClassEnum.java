@@ -1,14 +1,16 @@
 package org.firstinspires.ftc.teamcode;
 
+import androidx.annotation.NonNull;
+
 import java.lang.reflect.Method;
 
-public enum TestClassEnum implements ToMethod<TestClassEnum> {
+public enum TestClassEnum implements ToMethod {
     UTILTEST;
 
-    public Method toMethod(TestClassEnum type) throws NoSuchMethodException {
-        switch (type) {
+    public Method toMethod() throws NoSuchMethodException {
+        switch (this) {
             case UTILTEST:
-                return RobotUtils.class.getDeclaredMethod("testPrint", Integer.class);
+                return RobotUtils.class.getDeclaredMethod("testPrintDelay", Integer.class);
             default:
                 return null;
         }
