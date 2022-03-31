@@ -8,21 +8,24 @@ import org.testng.Assert;
 //import static org.junit.Assert.assertThrows;
 
 public class ManagerTest {
-    Manager<ToMethod> addFuncDelayManager = Manager.Builder.newBuilder()
+    Manager<ToMethod> funcDelayManager = Manager.Builder.newBuilder()
             .addFunc(TestClassEnum.UTILTEST)
             .addFunc(AltFunctionality.OTHERFUNC) //notice how it also allows other enums
             .addParameter(1)
             .build();
 
-    Manager<ToMethod> addFuncErrManager = Manager.Builder.newBuilder()
+    Manager<ToMethod> funcErrManager = Manager.Builder.newBuilder()
             .addFunc(TestClassEnum.UTILTEST)
+            .build();
+    Manager<ToMethod> funcManManager = Manager.Builder.newBuilder()
+            .addFunc(AltFunctionality.MANUALPRINT)
             .build();
 
     @Test
-    public void addFuncDelay() {
+    public void funcDelay() {
         //Simple example displaying basic functionality
         int i = 1;
-                addFuncDelayManager.exec(TestClassEnum.UTILTEST) //Notice the parameter is automatically passed
+                funcDelayManager.exec(TestClassEnum.UTILTEST) //Notice the parameter is automatically passed
                 //^ This call has a 5000ms sleep. Because of the concurrency annotation, the below
                 //  call will still proceed and will be completed first.
                 .exec(AltFunctionality.OTHERFUNC) //This is not delayed
@@ -31,12 +34,18 @@ public class ManagerTest {
     }
 
     @Test
-    public void addFuncError() {
+    public void funcError() {
         //The code below should throw an AssertionError. the parameter, while passed, is marked
         //as @Supplied@, therefore it will not expect to use that argument.
         Assert.assertThrows( () ->
-            addFuncErrManager.exec(TestClassEnum.UTILTEST, 1)
+            funcErrManager.exec(TestClassEnum.UTILTEST, 1)
         );
+    }
+
+    @Test
+    public void funcManual() {
+        funcManManager.exec(AltFunctionality.MANUALPRINT, 1337)
+                .await();
     }
 
 }

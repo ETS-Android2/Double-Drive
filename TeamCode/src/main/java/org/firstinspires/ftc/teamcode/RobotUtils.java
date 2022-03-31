@@ -116,4 +116,9 @@ public class RobotUtils {
         }
         System.out.println("Delay finished: " + i);
     }
+
+    @Concurrent
+    static void testPrintManual(Integer i) {
+        System.err.println("\n\nReceived value: " + i +"\n\n");
+    }
 }
