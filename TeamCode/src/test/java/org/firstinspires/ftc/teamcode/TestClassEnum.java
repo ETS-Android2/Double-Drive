@@ -5,12 +5,14 @@ import androidx.annotation.NonNull;
 import java.lang.reflect.Method;
 
 public enum TestClassEnum implements ToMethod {
-    UTILTEST;
+    PRINTDELAY, VRFUNC;
 
     public Method toMethod() throws NoSuchMethodException {
         switch (this) {
-            case UTILTEST:
-                return RobotUtils.class.getDeclaredMethod("testPrintDelay", Integer.class);
+            case PRINTDELAY:
+                return ManagerTestFunctions.class.getDeclaredMethod("testPrintDelay", Integer.class);
+            case VRFUNC:
+                return ManagerTestFunctions.class.getDeclaredMethod("vrFunc");
             default:
                 return null;
         }
