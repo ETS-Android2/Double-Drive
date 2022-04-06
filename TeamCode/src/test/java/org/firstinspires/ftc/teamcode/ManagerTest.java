@@ -58,7 +58,7 @@ public class ManagerTest {
 
     @Test
     public void funcManual() {
-        funcManManager.exec(AltFunctionality.MANUALPRINT, 1337)
+        funcManManager.exec(AltFunctionality.MANUALPRINT, "This is a manual argument")
                 .await();
     }
 
