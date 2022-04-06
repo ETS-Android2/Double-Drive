@@ -7,15 +7,20 @@ import com.qualcomm.robotcore.util.ThreadPool;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
 
@@ -26,6 +31,30 @@ import java.util.function.Predicate;
 //K allows the user to refer to the functions by anything they please. Enums allow implementations
 //to be easily swapped out for one another, or even mixed and matched
 
+
+//TODO: Enable the ability to add parameters via a String, with the @Supplied using a String to
+//      delineate the normal supplied annotation (is this beneficial?)
+//TODO: store(K func, String name) to store the result of a vrFunc
+
+//TODO: Conditional run
+//TODO: Scheduled run
+//TODO: Value-returning run (how to implement a nice abstraction?)
+//      Proposal: When given a value returning function to execute, it should be given a variable
+//                name to be referred to. That name will be the key in a TreeMap, and the value
+//                would be the Future<V> returned.
+//      Proposal: execWith(K vrFunc, K vuFunc). vrFunc (value-returning function) will compute
+//                asynchronously, passing its eventual value to vuFunc (value-using function).
+//                If vrFunc is @void@, then vuFunc is called without parameters. This would also
+//                effectively work as an andThen() function, allowing one thing to complete before
+//                another without blocking execution
+
+/**
+ * Manager is the heart of your program. It holds the methods, parameters, and function used to
+ * execute your code. Using Manager.Builder, it is trivial to construct a new Manager. Functions
+ * are required to be @static void@, but this is not checked (the return value would be ignored).
+ * @param <K> The Key representing the functions, which must be directly translatable to Methods.
+ *            Ex: RobotFuncs.RAISE_LIFT, which is an Enum that translates to a Method used to raise a lift.
+ */
 public final class Manager<K extends ToMethod> {
     private final Comparator<Class<?>>      classComparator = Comparator.comparing(Class::getCanonicalName);
     private final Comparator<K>             enumComparator  = Comparator.comparing(Objects::hashCode);
@@ -33,9 +62,14 @@ public final class Manager<K extends ToMethod> {
     private final TreeMap<Class<?>, Object> parameters      = new TreeMap<>(classComparator);
     private int numThreads;
     private ScheduledThreadPoolExecutor pool;
+    //The following two are used for value returning functions. In order to name them uniquely,
+    //an atomic Int is used.
+//    private AtomicInteger uniqueVarInt;
+//    private TreeMap<Integer, Object> returnedVals = new TreeMap<>();
 
 
     public Manager(Builder<K> builder) {
+//        uniqueVarInt.set(0);
         this.numThreads = builder.numThreads;
         this.functions.putAll(builder.functions);
         this.parameters.putAll(builder.parameters);
@@ -50,6 +84,174 @@ public final class Manager<K extends ToMethod> {
         pool = new ScheduledThreadPoolExecutor(10);
     }
 
+//      Proposal: execWith(K vrFunc, K vuFunc). vrFunc (value-returning function) will compute
+//                according to its Concurrency annotation, passing its eventual value to vuFunc (value-using function).
+//                If vrFunc is @void@, then vuFunc is called without parameters. This would also
+//                effectively work as an andThen() function, allowing one thing to complete before
+//                another without blocking execution (so long as vrFunc is marked as Concurrent)
+
+    //TODO: TEST THESE FUNCTIONS *************************************************
+    //  **************************************************************************
+    //  **************************************************************************
+    public Manager<K> execWith (K vrFunc, K vuFunc) {
+        Method vrMeth = functions.get(vrFunc);
+        Method vuMeth = functions.get(vuFunc);
+
+        assert vrMeth != null;
+        assert vuMeth != null;
+        Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
+        assert vrAnno != null; //TODO: add print statements with error message
+
+        if(vrAnno.behavior() == ConcE.CONCURRENT) {
+            Future<Object> vrRetValF = pool.submit(toCallable(vrMeth));
+            pool.execute(() -> {
+                try {
+                    Object vrRetVal = vrRetValF.get();
+                    toRunnable(vuMeth, vrRetVal).run();
+                } catch (ExecutionException | InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+        } //Submits it to a pool
+        else {
+            try {
+                Object vrRetVal = toCallable(vrMeth).call();
+                toRunnable(vuMeth, vrRetVal).run();
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+        } //Blocks
+
+        return this;
+    }
+
+    public Manager<K> execWith (K vrFunc, Object[] vrFuncArgs, K vuFunc, Object[] vuFuncArgs) {
+        Method vrMeth = functions.get(vrFunc);
+        Method vuMeth = functions.get(vuFunc);
+
+        assert vrMeth != null;
+        assert vuMeth != null;
+        Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
+        assert vrAnno != null; //TODO: add print statements with error message
+
+        if(vrAnno.behavior() == ConcE.CONCURRENT) {
+            Future<Object> vrRetValF = pool.submit(toCallable(vrMeth, vrFuncArgs));
+            pool.execute(() -> {
+                try {
+                    Object vrRetVal = vrRetValF.get();
+                    //collect all of the arguments together
+                    ArrayList<Object> allVuArgsAL = new ArrayList<Object>(vuFuncArgs.length+1);
+                    allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
+                    allVuArgsAL.add(vrRetVal);
+                    Object[] allVuArgs = allVuArgsAL.toArray();
+
+                    toRunnable(vuMeth, allVuArgs).run();
+                } catch (ExecutionException | InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+        } //Submits it to a pool
+        else {
+            try {
+                Object vrRetVal = toCallable(vrMeth, vrFuncArgs).call();
+                //collect all of the arguments together
+                ArrayList<Object> allVuArgsAL = new ArrayList<Object>(vuFuncArgs.length+1);
+                allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
+                allVuArgsAL.add(vrRetVal);
+                Object[] allVuArgs = allVuArgsAL.toArray();
+
+                toRunnable(vuMeth, allVuArgs).run();
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+        } //Blocks
+
+        return this;
+    }
+
+    //FIXME: is it possible to remove the reused code? -> function that returns args in array
+    private <T> Callable<T> toCallable(Method method, Object... args) {
+        //TODO: change the comments here to account for Callables instead of Runnables
+        int parameterCount = method.getParameterCount();
+        Class<?>[] paramTypes = method.getParameterTypes();
+        Object[]   params = new Object[parameterCount];
+        Boolean[]  paramMkdSupplied = new Boolean[parameterCount];
+        //^ Keeps track (linearly) of if parameters are marked Supplied. Makes it much quicker than re-double-iterating
+
+//        assert(params.length == args.length);
+        Annotation[][] annotations = method.getParameterAnnotations();
+        int numAnno = parameterCount;
+        for(int k=0; k<annotations.length; k++) {
+            if(annotations[k].length == 0) {
+                paramMkdSupplied[k] = false;
+            }
+            for(int i=0; i<annotations[k].length; i++) {
+                if(annotations[k][i] instanceof Supplied) {
+                    numAnno--;
+                    paramMkdSupplied[k] = true;
+                }
+            }
+        }
+        //Fetch the automatic parameters, erroring if it is unable to find arguments which are Supplied
+        for(int i=0; i<parameterCount; i++) {
+            params[i] = parameters.get(paramTypes[i]);
+            if(Objects.isNull(params[i]) //TreeMap.get will return null when it can't find anything
+                    && !parameters.containsKey(paramTypes[i])
+                    //^It may be useful to include a null in the Treemap, so ensure it isn't present
+                    && paramMkdSupplied[i]) { //check if it is marked Supplied, which would require it to be in the TreeMap
+                System.err.println("\n\nFATAL: Unable to supply arguments which are marked Supplied." +
+                        "\n\tIn position " + i + " (from 0) with type " + paramTypes[i].getCanonicalName() +
+                        "\n\tIn call for method " + method.getName() +
+                        "\n\tWith manual arguments " + Arrays.toString(args) +
+                        "\n\tPerhaps you should use a shared State parameter?");
+                assert(false);
+            }
+        }
+
+        //return the runnable
+        if(method.getParameterCount() == 0) {
+            return () -> {
+                try {
+                    return (T) method.invoke(null);
+                } catch (IllegalAccessException | InvocationTargetException e) {
+                    e.printStackTrace();
+                    return null;
+                } catch (ClassCastException e) {
+                    System.out.println("Could not cast method invocation to value T");
+                    return null;
+                }
+
+            };
+        }
+        //Check if anything has an annotation. If so, replace those by the args
+        if(numAnno > 0) {
+            if(numAnno != args.length) {
+                System.err.println("\n\nNumber of arguments provided in args must be equal to number " +
+                        "required for the Method, as determined by the number of Supplied annotations on arguments");
+                assert(false);
+            }
+            int argNum = 0;
+            for(int i=0; i<parameterCount; i++) {
+                if(Objects.isNull(params[i])) {
+                    params[i] = args[argNum];
+                    argNum++;
+                }
+            }
+        }
+
+        return () -> {
+            try {
+//                System.out.println(Arrays.toString(paramTypes));
+                return (T) method.invoke(null, params);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                e.printStackTrace();
+                return null;
+            } catch (ClassCastException e) {
+                System.out.println("Could not cast method invocation to value T");
+                return null;
+            }
+        };
+    }
 
     /**
      *
@@ -120,7 +322,6 @@ public final class Manager<K extends ToMethod> {
              }
         }
 
-        //return the final method call
         return () -> {
             try {
 //                System.out.println(Arrays.toString(paramTypes));
@@ -140,7 +341,14 @@ public final class Manager<K extends ToMethod> {
      */
     public Manager<K> exec(K key, Object... args) {
         Method func = functions.get(key);
-        assert func != null;
+
+        if (Objects.isNull(func)) {
+            System.out.println("Failed to find function with key " + key +
+                    "\n\tDid you ensure to update your Manager with the supplied functions?"+
+                    "\n\tDid you ensure to update the use sites of your functions?");
+
+            assert false;
+        }
         Concurrent behavior = func.getDeclaredAnnotation(Concurrent.class);
         if(Objects.isNull(behavior)) {
             System.err.println("\n\nERROR IN EXEC FOR FUNCTION " + key + ": Method defined by "+ key+
