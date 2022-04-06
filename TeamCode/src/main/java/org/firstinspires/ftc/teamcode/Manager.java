@@ -28,19 +28,9 @@ import de.cronn.reflection.util.immutable.ImmutableProxy;
 
 //TODO: Enable the ability to add parameters via a String, with the @Supplied using a String to
 //      delineate the normal supplied annotation (is this beneficial?)
-//TODO: store(K func, String name) to store the result of a vrFunc
 
 //TODO: Conditional run
 //TODO: Scheduled run
-//TODO: Value-returning run (how to implement a nice abstraction?)
-//      Proposal: When given a value returning function to execute, it should be given a variable
-//                name to be referred to. That name will be the key in a TreeMap, and the value
-//                would be the Future<V> returned.
-//      Proposal: execWith(K vrFunc, K vuFunc). vrFunc (value-returning function) will compute
-//                asynchronously, passing its eventual value to vuFunc (value-using function).
-//                If vrFunc is @void@, then vuFunc is called without parameters. This would also
-//                effectively work as an andThen() function, allowing one thing to complete before
-//                another without blocking execution
 
 /**
  * Manager is the heart of your program. It holds the methods, parameters, and function used to
@@ -59,8 +49,6 @@ public final class Manager<K extends ToMethod> {
     private ScheduledThreadPoolExecutor pool;
     //The following two are used for value returning functions. In order to name them uniquely,
     //an atomic Int is used.
-//    private AtomicInteger uniqueVarInt;
-//    private TreeMap<Integer, Object> returnedVals = new TreeMap<>();
 
 
     public Manager(Builder<K> builder) {
@@ -132,7 +120,7 @@ public final class Manager<K extends ToMethod> {
                 try {
                     Object vrRetVal = vrRetValF.get();
                     //collect all of the arguments together
-                    ArrayList<Object> allVuArgsAL = new ArrayList<Object>(vuFuncArgs.length+1);
+                    ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length+1);
                     allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
                     allVuArgsAL.add(vrRetVal);
                     Object[] allVuArgs = allVuArgsAL.toArray();
@@ -147,7 +135,7 @@ public final class Manager<K extends ToMethod> {
             try {
                 Object vrRetVal = toCallable(vrMeth, vrFuncArgs).call();
                 //collect all of the arguments together
-                ArrayList<Object> allVuArgsAL = new ArrayList<Object>(vuFuncArgs.length+1);
+                ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length+1);
                 allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
                 allVuArgsAL.add(vrRetVal);
                 Object[] allVuArgs = allVuArgsAL.toArray();

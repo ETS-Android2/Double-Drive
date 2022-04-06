@@ -2,11 +2,12 @@ package org.firstinspires.ftc.teamcode;
 
 import static org.firstinspires.ftc.teamcode.Manager.Builder;
 
+import com.qualcomm.robotcore.hardware.HardwareMap;
+
 import org.junit.Test;
 import org.testng.Assert;
-import org.testng.AssertJUnit;
 import de.cronn.reflection.util.immutable.ImmutableProxy;
-import static org.firstinspires.ftc.teamcode.AltFunctionality.*; //removes the need for AltFunctionality.[enum]
+import com.qualcomm.robotcore.eventloop.opmode.OpMode.*;
 
 
 public class ManagerTest {
@@ -21,19 +22,29 @@ public class ManagerTest {
     Manager<ToMethod> funcManManager = Manager.Builder.newBuilder()
             .addFunc(AltFunctionality.MANUALPRINT)
             .build();
-    Manager<ToMethod> funcAndThen = Manager.Builder.newBuilder()
+   Manager<ToMethod> funcAndThen = Manager.Builder.newBuilder()
             .addFunc(TestClassEnum.PRINTDELAY)
             .addFunc(AltFunctionality.PRINTNODELAY)
             .addParameter(1)
             .build();
-    Manager<ToMethod> funcExecWithConc = Manager.Builder.newBuilder()
-            .addFunc(TestClassEnum.VRFUNCCONC)
-            .addFunc(AltFunctionality.MANUALPRINT)
-            .build();
-    Manager<ToMethod> funcExecWithBlock = Manager.Builder.newBuilder()
-            .addFunc(TestClassEnum.VRFUNCBLOCK)
-            .addFunc(AltFunctionality.MANUALPRINT)
-            .build();
+   Manager<ToMethod> funcExecWithConc = Manager.Builder.newBuilder()
+           .addFunc(TestClassEnum.VRFUNCCONC)
+           .addFunc(AltFunctionality.MANUALPRINT)
+           .build();
+   Manager<ToMethod> funcExecWithBlock = Manager.Builder.newBuilder()
+           .addFunc(TestClassEnum.VRFUNCBLOCK)
+           .addFunc(AltFunctionality.MANUALPRINT)
+           .build();
+
+//   RobotConfig raiseLiftConfig = ImmutableRobotConfig.builder()
+//           .winchMotor()
+
+   Manager<ToMethod> funcRaiseLift = Manager.Builder.newBuilder()
+           .addFunc(AltFunctionality.RAISELIFT)
+           .addFunc(AltFunctionality.LOWERLIFT)
+           .addFunc(AltFunctionality.GETLIFTLEVEL)
+//           .addParameter()
+           .build();
 
 
     @Test
@@ -58,7 +69,7 @@ public class ManagerTest {
 
     @Test
     public void funcManual() {
-        funcManManager.exec(AltFunctionality.MANUALPRINT, "This is a manual argument")
+        funcManManager.exec(AltFunctionality.MANUALPRINT, 1337)
                 .await();
     }
 
@@ -70,7 +81,6 @@ public class ManagerTest {
         funcAndThen.execWith(TestClassEnum.PRINTDELAY, AltFunctionality.PRINTNODELAY)
                 .exec(TestClassEnum.PRINTDELAY) //starts right after PRINTDELAY is initially called
                 .await();
-
     }
 
     @Test
@@ -86,5 +96,10 @@ public class ManagerTest {
         funcExecWithBlock.execWith(TestClassEnum.VRFUNCBLOCK, AltFunctionality.MANUALPRINT)
                 .exec(AltFunctionality.MANUALPRINT, "Manual print after execWith()");
                 //^ executed after the execWith() completes, normally printing after them.
+    }
+
+    @Test
+    public void funcRaiseLift() {
+
     }
 }

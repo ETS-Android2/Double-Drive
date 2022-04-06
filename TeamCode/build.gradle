@@ -38,8 +38,8 @@ dependencies {
     annotationProcessor files('lib/OpModeAnnotationProcessor.jar')
     testImplementation 'junit:junit:4.12'
 //    apt "org.immutables:value:2.8.2" // <-- for annotation processor
-//    annotationProcessor "org.immutables:value:2.8.2" // <-- for annotation API
-//    implementation "org.immutables:value-annotations:2.8.2" // for annotations
+    annotationProcessor "org.immutables:value:2.8.2" // <-- for annotation API
+    implementation "org.immutables:value-annotations:2.8.2" // for annotations
     implementation 'de.cronn:reflection-util:2.13.2'
     testImplementation 'de.cronn:reflection-util:2.13.2'
 //    androidTestImplementation 'junit:junit:4.12'
