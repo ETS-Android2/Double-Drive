@@ -4,9 +4,16 @@
  * It is extraordinarily rare that you will ever need to edit this file.
  */
 
+
 configurations {
     doc { transitive false }
 }
+
+//configurations.all {
+//    resolutionStrategy {
+//        force 'org.hamcrest:hamcrest-junit:2.0.0.0'
+//    }
+//}
 
 buildscript {
     repositories {
@@ -16,9 +23,9 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:4.0.1'
+//        classpath "com.neenbedankt.gradle.plugins:android-apt:1.6"
     }
 }
-
 // This is now required because aapt2 has to be downloaded from the
 // google() repository beginning with version 3.2 of the Android Gradle Plugin
 allprojects {
@@ -43,6 +50,8 @@ dependencies {
     doc 'org.firstinspires.ftc:FtcCommon:6.2.0'
     doc 'org.firstinspires.ftc:OnBotJava:6.2.0'
     doc 'org.firstinspires.ftc:Inspection:6.2.0'
+
+
 }
 
 task extractJavadoc {

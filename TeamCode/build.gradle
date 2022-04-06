@@ -15,6 +15,13 @@
 apply from: '../build.common.gradle'
 apply from: '../build.dependencies.gradle'
 
+//this is necessary for some reason, namely because gradle can't do dependency resolution!
+configurations.all {
+    resolutionStrategy.dependencySubstitution {
+        substitute module('org.hamcrest:hamcrest-core:1.1') with module('junit:junit:4.10')
+    }
+}
+
 android {
     sourceSets {
         main {
@@ -30,9 +37,16 @@ dependencies {
     implementation 'org.testng:testng:6.9.6'
     annotationProcessor files('lib/OpModeAnnotationProcessor.jar')
     testImplementation 'junit:junit:4.12'
+//    apt "org.immutables:value:2.8.2" // <-- for annotation processor
+//    annotationProcessor "org.immutables:value:2.8.2" // <-- for annotation API
+//    implementation "org.immutables:value-annotations:2.8.2" // for annotations
+    implementation 'de.cronn:reflection-util:2.13.2'
+    testImplementation 'de.cronn:reflection-util:2.13.2'
 //    androidTestImplementation 'junit:junit:4.12'
 }
-repositories { mavenCentral() }
+repositories {
+    mavenCentral()
+}
 
 //test {
 //    useJUnitPlatform()

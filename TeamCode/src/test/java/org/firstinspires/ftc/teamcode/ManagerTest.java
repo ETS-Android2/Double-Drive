@@ -4,6 +4,7 @@ import static org.firstinspires.ftc.teamcode.Manager.Builder;
 
 import org.junit.Test;
 import org.testng.Assert;
+import de.cronn.reflection.util.immutable.ImmutableProxy;
 
 //import static org.junit.Assert.assertThrows;
 
@@ -11,7 +12,7 @@ public class ManagerTest {
     Manager<ToMethod> funcDelayManager = Manager.Builder.newBuilder()
             .addFunc(TestClassEnum.UTILTEST)
             .addFunc(AltFunctionality.OTHERFUNC) //notice how it also allows other enums
-            .addParameter(1)
+            .addParameterUnsafe(1)
             .build();
 
     Manager<ToMethod> funcErrManager = Manager.Builder.newBuilder()
@@ -20,6 +21,7 @@ public class ManagerTest {
     Manager<ToMethod> funcManManager = Manager.Builder.newBuilder()
             .addFunc(AltFunctionality.MANUALPRINT)
             .build();
+
 
     @Test
     public void funcDelay() {

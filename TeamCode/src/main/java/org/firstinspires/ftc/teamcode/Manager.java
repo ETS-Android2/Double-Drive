@@ -18,6 +18,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
+
 //Manager is the builder of the entire config. functions, the RobotConfig class, special drive modes,
 //etc. will all live here. functions should live here because it would allow Manager to pass arguments
 //to the functions. Should a method not be found, it does nothing.
@@ -223,11 +224,19 @@ public final class Manager<K extends ToMethod> {
         }
 
         /**
-         * Add an automatically passed parameter
+         * Add an automatically passed parameter. This function is unsafe because of potential
+         * concurrent usage of the variables. It is safer to use addParameter() instead, but the
+         * object must utilize the Immutables package provided with DoubleDrive. Use this function
+         * if you know what you are doing and are sure your code follows a @ReaderT IO@-like design
+         * pattern.
          * @param param The auto-parameter
          * @return An updated Builder
+         * @implNote Due to storage in a TreeMap, parameters must be unique. They also ought to be
+         * immutable because of potential concurrent access. Note that immutability is not enforced,
+         * so it is necessary to ensure best practices. <strong>All access to shared state must be synchronized,
+         * not just modifications.</strong>
          */
-        public Builder<T> addParameter(Object param) {
+        public Builder<T> addParameterUnsafe(Object param) {
             if(parameters.containsKey(param.getClass())) {
                 System.err.println("\n\nERROR: Cannot put more than one automatic argument of the " +
                         "same Class into a Manager.");
@@ -235,6 +244,27 @@ public final class Manager<K extends ToMethod> {
             }
             parameters.put(param.getClass(), param);
 
+            return this;
+        }
+
+        /**
+         *
+         * @param param The auto-parameter
+         * @return An updated Builder
+         * @implNote Due to storage in a TreeMap, parameters must be unique. Immutability
+         * <strong>is</strong> enforced. In order to add a parameter using this function, it must
+         * have an Immutability annotation from the Immutables library. This is not fool-proof, however.
+         * For example, @param.foo().unsafeChange(bar)@ could be done and will not be caught, but may not
+         * be thread-safe. <strong>All access to shared state must be synchronized,
+         * not just modifications.</strong>
+         */
+        public Builder<T> addParameter(Object param) {
+            if(parameters.containsKey(param.getClass())) {
+                System.err.println("\n\nERROR: Cannot put more than one automatic argument of the " +
+                        "same Class into a Manager.");
+                assert(false);
+            }
+            //TODO: make this check for Immutability annotation
             return this;
         }
 

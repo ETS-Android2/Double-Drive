@@ -23,11 +23,14 @@ import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.Velocity;
+
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
 
+
 public class RobotUtils {
     //TODO: ADD JAVADOC COMMENTS
+    public static int blah = 0;
     synchronized static void moveLiftDown(LiftLevel level, Servo servo, DcMotor motor) {
         // double servPos = LiftLevel.level2Val(level);
         //get the values we need to go to from the current level
