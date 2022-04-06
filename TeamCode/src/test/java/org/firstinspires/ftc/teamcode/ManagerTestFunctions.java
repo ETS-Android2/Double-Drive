@@ -23,12 +23,23 @@ public class ManagerTestFunctions {
     }
 
     @Concurrent
-    static void testPrintManual(Integer i) {
+    static <T> void testPrintManual(T i) {
         System.out.println("Received value: " + i);
     }
 
     @Concurrent
-    static Integer vrFunc() {
+    static Integer vrFuncConc() {
+        System.out.println("Delaying 2000ms...");
+        try {
+            sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return 321;
+    }
+
+    @Concurrent(behavior = ConcE.BLOCKING)
+    static Integer vrFuncBlock() {
         System.out.println("Delaying 2000ms...");
         try {
             sleep(2000);

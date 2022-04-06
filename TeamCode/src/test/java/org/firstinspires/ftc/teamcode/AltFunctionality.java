@@ -9,7 +9,7 @@ public enum AltFunctionality implements ToMethod {
     public Method toMethod() throws NoSuchMethodException {
         switch(this) {
             case PRINTNODELAY:   return ManagerTestFunctions.class.getDeclaredMethod("testPrint", Integer.class);
-            case MANUALPRINT: return ManagerTestFunctions.class.getDeclaredMethod("testPrintManual", Integer.class);
+            case MANUALPRINT: return ManagerTestFunctions.class.getDeclaredMethod("testPrintManual", Object.class);
             default: return null;
         }
     }
