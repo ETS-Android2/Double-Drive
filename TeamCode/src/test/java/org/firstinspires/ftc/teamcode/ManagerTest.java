@@ -4,9 +4,10 @@ import static org.firstinspires.ftc.teamcode.Manager.Builder;
 
 import org.junit.Test;
 import org.testng.Assert;
+import org.testng.AssertJUnit;
 import de.cronn.reflection.util.immutable.ImmutableProxy;
+import static org.firstinspires.ftc.teamcode.AltFunctionality.*; //removes the need for AltFunctionality.[enum]
 
-//import static org.junit.Assert.assertThrows;
 
 public class ManagerTest {
     Manager<ToMethod> funcDelayManager = Manager.Builder.newBuilder()
@@ -14,24 +15,25 @@ public class ManagerTest {
             .addFunc(AltFunctionality.PRINTNODELAY) //notice how it also allows other enums
             .addParameterUnsafe(1)
             .build();
-
     Manager<ToMethod> funcErrManager = Manager.Builder.newBuilder()
             .addFunc(TestClassEnum.PRINTDELAY)
             .build();
-
     Manager<ToMethod> funcManManager = Manager.Builder.newBuilder()
             .addFunc(AltFunctionality.MANUALPRINT)
             .build();
-
-   Manager<ToMethod> funcAndThen = Manager.Builder.newBuilder()
+    Manager<ToMethod> funcAndThen = Manager.Builder.newBuilder()
             .addFunc(TestClassEnum.PRINTDELAY)
             .addFunc(AltFunctionality.PRINTNODELAY)
             .addParameter(1)
             .build();
-   Manager<ToMethod> funcExecWith = Manager.Builder.newBuilder()
-           .addFunc(TestClassEnum.VRFUNC)
-           .addFunc(AltFunctionality.MANUALPRINT)
-           .build();
+    Manager<ToMethod> funcExecWithConc = Manager.Builder.newBuilder()
+            .addFunc(TestClassEnum.VRFUNCCONC)
+            .addFunc(AltFunctionality.MANUALPRINT)
+            .build();
+    Manager<ToMethod> funcExecWithBlock = Manager.Builder.newBuilder()
+            .addFunc(TestClassEnum.VRFUNCBLOCK)
+            .addFunc(AltFunctionality.MANUALPRINT)
+            .build();
 
 
     @Test
@@ -43,7 +45,6 @@ public class ManagerTest {
                 //  call will still proceed and will be completed first.
                 .exec(AltFunctionality.PRINTNODELAY) //This is not delayed
                 .await();
-
     }
 
     @Test
@@ -69,12 +70,21 @@ public class ManagerTest {
         funcAndThen.execWith(TestClassEnum.PRINTDELAY, AltFunctionality.PRINTNODELAY)
                 .exec(TestClassEnum.PRINTDELAY) //starts right after PRINTDELAY is initially called
                 .await();
+
     }
 
     @Test
-    public void funcExecWith() {
-        funcExecWith.execWith(TestClassEnum.VRFUNC, AltFunctionality.MANUALPRINT)
-                .exec(AltFunctionality.MANUALPRINT, 11111)
+    public void funcExecWithConc() {
+        funcExecWithConc.execWith(TestClassEnum.VRFUNCCONC, AltFunctionality.MANUALPRINT)
+                .exec(AltFunctionality.MANUALPRINT, "Manual print after execWith()")
+                //^ executed right after the execWith(), normally printing between them
                 .await();
+    }
+
+    @Test
+    public void funcExecWithBlock() {
+        funcExecWithBlock.execWith(TestClassEnum.VRFUNCBLOCK, AltFunctionality.MANUALPRINT)
+                .exec(AltFunctionality.MANUALPRINT, "Manual print after execWith()");
+                //^ executed after the execWith() completes, normally printing after them.
     }
 }
