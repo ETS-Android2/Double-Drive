@@ -2,9 +2,12 @@ package org.firstinspires.ftc.teamcode;
 
 import static org.firstinspires.ftc.teamcode.Manager.Builder;
 
+import com.qualcomm.robotcore.hardware.HardwareMap;
+
 import org.junit.Test;
 import org.testng.Assert;
 import de.cronn.reflection.util.immutable.ImmutableProxy;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode.*;
 
 
 public class ManagerTest {
@@ -31,6 +34,16 @@ public class ManagerTest {
    Manager<ToMethod> funcExecWithBlock = Manager.Builder.newBuilder()
            .addFunc(TestClassEnum.VRFUNCBLOCK)
            .addFunc(AltFunctionality.MANUALPRINT)
+           .build();
+
+//   RobotConfig raiseLiftConfig = ImmutableRobotConfig.builder()
+//           .winchMotor()
+
+   Manager<ToMethod> funcRaiseLift = Manager.Builder.newBuilder()
+           .addFunc(AltFunctionality.RAISELIFT)
+           .addFunc(AltFunctionality.LOWERLIFT)
+           .addFunc(AltFunctionality.GETLIFTLEVEL)
+//           .addParameter()
            .build();
 
 
@@ -83,5 +96,10 @@ public class ManagerTest {
         funcExecWithBlock.execWith(TestClassEnum.VRFUNCBLOCK, AltFunctionality.MANUALPRINT)
                 .exec(AltFunctionality.MANUALPRINT, "Manual print after execWith()");
                 //^ executed after the execWith() completes, normally printing after them.
+    }
+
+    @Test
+    public void funcRaiseLift() {
+
     }
 }

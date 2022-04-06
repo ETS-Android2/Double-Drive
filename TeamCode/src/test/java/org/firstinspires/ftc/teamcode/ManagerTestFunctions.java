@@ -9,9 +9,7 @@ public class ManagerTestFunctions {
         System.out.println("this works!" +i);
     }
 
-    @Concurrent //(
-    //  behavior = ConcE.BLOCKING
-    //)
+    @Concurrent
     static void testPrintDelay(@Supplied Integer i) {
         System.out.println("Delaying 5000ms...");
         try {
@@ -47,5 +45,24 @@ public class ManagerTestFunctions {
             e.printStackTrace();
         }
         return 321;
+    }
+
+
+    //LIFT TESTING FUNCTIONS
+    @Concurrent
+    static void raiseLift(@Supplied RobotConfig config, LiftLevelI lift) {
+        LiftLevelI upLevel = lift.upMotorPos();
+        config.winchMotor().setTargetPosition(upLevel.currMotorPos());
+    }
+    @Concurrent
+    static void lowerLift(@Supplied RobotConfig config, LiftLevelI lift) {
+        LiftLevelI downLevel = lift.downMotorPos();
+        config.winchMotor().setTargetPosition(downLevel.currMotorPos());
+    }
+
+    @Concurrent
+    static LiftLevelI getLiftLevel(@Supplied RobotConfig config) {
+        int targetPos = config.winchMotor().getTargetPosition();
+        return Levels.toLiftLevel(targetPos);
     }
 }
