@@ -9,14 +9,21 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -49,17 +56,26 @@ import de.cronn.reflection.util.immutable.ImmutableProxy;
 public final class Manager<K extends ToMethod> {
     private final Comparator<Class<?>>      classComparator = Comparator.comparing(Class::getCanonicalName);
     private final Comparator<K>             enumComparator  = Comparator.comparing(Objects::hashCode);
-    private final TreeMap<K, Method>        functions       = new TreeMap<>(enumComparator);
+    private final TreeMap<K, Method>        methods         = new TreeMap<>(enumComparator);
+    private final TreeMap<K, Action>        functions       = new TreeMap<>(enumComparator);
     private final TreeMap<Class<?>, Object> parameters      = new TreeMap<>(classComparator);
     private int numThreads;
     private ScheduledThreadPoolExecutor pool;
-    //The following two are used for value returning functions. In order to name them uniquely,
-    //an atomic Int is used.
+//    private List<K> activeActions = Collections.synchronizedList(new ArrayList<>());
 
 
     public Manager(Builder<K> builder) {
         this.numThreads = builder.numThreads;
-        this.functions.putAll(builder.functions);
+        this.methods.putAll(builder.functions);
+
+        Set<K> funcsTemp = methods.keySet();
+        Iterator iter = funcsTemp.iterator();
+        //TODO: check that this while loop works
+        while(iter.hasNext()) {
+            K next = (K) iter.next();
+            functions.put(next, new Action(next));
+        }
+
         this.parameters.putAll(builder.parameters);
         pool = new ScheduledThreadPoolExecutor(builder.numThreads);
     }
@@ -79,19 +95,24 @@ public final class Manager<K extends ToMethod> {
      * @param vuFunc Value-using function
      * @return The current Manager
      */
-    public Manager<K> execWith(K vrFunc, K vuFunc) {
-        Method vrMeth = functions.get(vrFunc);
-        Method vuMeth = functions.get(vuFunc);
+    public Manager<K> execWith(final K vrFunc, K vuFunc) {
+        Action vrAct = functions.get(vrFunc);
+        Action vuAct = functions.get(vuFunc);
 
-        assert vrMeth != null;
-        assert vuMeth != null;
+        assert vrAct != null;
+        assert vuAct != null;
+
+        Method vrMeth = vrAct.toMethod();
+        Method vuMeth = vuAct.toMethod();
+
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
         assert vrAnno != null; //TODO: add print statements with error message
 
         if(vrAnno.behavior() == ConcE.CONCURRENT) {
             Future<Object> vrRetValF = pool.submit(toCallable(vrMeth));
+
             //TODO check if its allowAsync here, if so add it to a synchronized arraylist. when another
-            //     is requested, put it as a runnable in the arraylist until it isnt present
+            //     is requested, put it as a runnable in the arraylist until it isn't present
             pool.execute(() -> { //Submits it to a pool
                 try {
                     Object vrRetVal = vrRetValF.get();
@@ -115,8 +136,10 @@ public final class Manager<K extends ToMethod> {
     }
 
     private Manager<K> execWith(K vrFunc, Runnable subroutine) {
-        Method vrMeth = functions.get(vrFunc);
-        assert vrMeth != null;
+        Action vrAct = functions.get(vrFunc);
+        assert vrAct != null;
+
+        Method vrMeth = vrAct.toMethod();
 
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
         assert vrAnno != null;
@@ -147,11 +170,15 @@ public final class Manager<K extends ToMethod> {
 
     //TODO: make javadoc
     public Manager<K> execWith(K vrFunc, Object[] vrFuncArgs, K vuFunc, Object[] vuFuncArgs) {
-        Method vrMeth = functions.get(vrFunc);
-        Method vuMeth = functions.get(vuFunc);
+        Action vrAct = functions.get(vrFunc);
+        Action vuAct = functions.get(vuFunc);
 
-        assert vrMeth != null;
-        assert vuMeth != null;
+        assert vrAct != null;
+        assert vuAct != null;
+
+        Method vrMeth = vrAct.toMethod();
+        Method vuMeth = vuAct.toMethod();
+
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
         assert vrAnno != null; //TODO: add print statements with error message
 
@@ -191,12 +218,16 @@ public final class Manager<K extends ToMethod> {
     }
 
     //TODO: make javadoc
-    //TODO: TEST
     @SafeVarargs
     public final Manager<K> execManyWith(K vrFunc, K... vuFuncs) {
-        Method       vrMeth  = functions.get(vrFunc);
+        Action vrAct = functions.get(vrFunc);
+        assert vrAct != null;
+
+        Method vrMeth = vrAct.toMethod();
+
         List<Method> vuMeths = Arrays.stream(vuFuncs).parallel()
                 .map(functions::get)
+                .map(Action::toMethod)
                 .collect(Collectors.toList()); //get the methods in parallel, sacrificing null-safety
         assert vrMeth != null;
 
@@ -363,7 +394,11 @@ public final class Manager<K extends ToMethod> {
      * @return Itself
      */
     public Manager<K> exec(K key, Object... args) {
-        Method func = functions.get(key);
+        Action act = functions.get(key);
+        assert act != null;
+
+        Method func = act.toMethod();
+
 
         if (Objects.isNull(func)) {
             System.out.println("Failed to find function with key " + key +
@@ -540,5 +575,50 @@ public final class Manager<K extends ToMethod> {
         }
     }
 
-    //Guard is for Subroutines, but ought to be in here for getParamsSentinel()
+    private class Action implements ToMethod {
+        Semaphore available = new Semaphore(1, true);
+        boolean requirePermit;
+        K action;
+
+        private Action() {}
+        public Action(K action) {
+            this.action = action;
+            Method actionM = methods.get(action);
+
+            assert actionM != null;
+            Concurrent actionAnno = actionM.getAnnotation(Concurrent.class);
+            assert actionAnno != null;
+
+            requirePermit = !actionAnno.allowAsync();
+        }
+
+        @Override
+        public Method toMethod(){
+            //Check to see if we need to wait for access for this method
+            if(requirePermit) {
+                try {
+                    available.acquire();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            Method actionMeth = null;
+            try {
+                actionMeth = action.toMethod();
+            } catch (NoSuchMethodException e) {
+                e.printStackTrace();
+            }
+
+            assert actionMeth != null;
+            return actionMeth;
+        }
+
+        /**
+         * Allow this method to be fetched again
+         */
+        public void release() {
+            available.release();
+        }
+
+    }
 }
