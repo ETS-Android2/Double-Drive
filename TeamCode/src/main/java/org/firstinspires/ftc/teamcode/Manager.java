@@ -2,12 +2,15 @@ package org.firstinspires.ftc.teamcode;
 
 
 
+import org.immutables.value.Value;
+
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
@@ -15,6 +18,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import de.cronn.reflection.util.immutable.ImmutableProxy;
 
@@ -31,6 +36,7 @@ import de.cronn.reflection.util.immutable.ImmutableProxy;
 
 //TODO: Conditional run
 //TODO: Scheduled run
+//TODO: all-to-one variant of execWith
 
 /**
  * Manager is the heart of your program. It holds the methods, parameters, and function used to
@@ -64,7 +70,7 @@ public final class Manager<K extends ToMethod> {
 
     /**
      * {@code execWith()} enables functions to use their return values in manual functions. It also
-     * enables a form of {@code andThen()} by forcing the execution of the vuFunc to be executed
+     * enables a form of {@code andThen()} by forcing the execution of the value-using function to be executed
      * after the value is acquired. If the value-returning function is {@code Blocking}, then execution
      * in the {@code Manager} chain will wait until the value is passed to the value-using function.
      * If the value-returning function is {@code concurrent}, execution of the value-using function will wait
@@ -84,27 +90,62 @@ public final class Manager<K extends ToMethod> {
 
         if(vrAnno.behavior() == ConcE.CONCURRENT) {
             Future<Object> vrRetValF = pool.submit(toCallable(vrMeth));
-            pool.execute(() -> {
+            //TODO check if its allowAsync here, if so add it to a synchronized arraylist. when another
+            //     is requested, put it as a runnable in the arraylist until it isnt present
+            pool.execute(() -> { //Submits it to a pool
                 try {
                     Object vrRetVal = vrRetValF.get();
                     toRunnable(vuMeth, vrRetVal).run();
+                    //TODO if its allowAsync, remove it from the synchronized arraylist
                 } catch (ExecutionException | InterruptedException e) {
                     e.printStackTrace();
                 }
             });
-        } //Submits it to a pool
-        else {
+        }
+        else { //Blocks
             try {
                 Object vrRetVal = toCallable(vrMeth).call();
                 toRunnable(vuMeth, vrRetVal).run();
             } catch (Exception e){
                 e.printStackTrace();
             }
-        } //Blocks
+        }
 
         return this;
     }
 
+    private Manager<K> execWith(K vrFunc, Runnable subroutine) {
+        Method vrMeth = functions.get(vrFunc);
+        assert vrMeth != null;
+
+        Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
+        assert vrAnno != null;
+
+        if (vrAnno.behavior() == ConcE.CONCURRENT) {
+
+            Future<Object> vrRetValF = pool.submit(toCallable(vrMeth));
+            pool.execute(() -> { //Submits it to a pool
+                try {
+                    Object vrRetVal = vrRetValF.get();
+                    subroutine.run();
+                } catch (ExecutionException | InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        else { //Blocks
+            try {
+                Object vrRetVal = toCallable(vrMeth).call();
+                subroutine.run();
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+        return this;
+    }
+
+
+    //TODO: make javadoc
     public Manager<K> execWith(K vrFunc, Object[] vrFuncArgs, K vuFunc, Object[] vuFuncArgs) {
         Method vrMeth = functions.get(vrFunc);
         Method vuMeth = functions.get(vuFunc);
@@ -145,6 +186,47 @@ public final class Manager<K extends ToMethod> {
                 e.printStackTrace();
             }
         } //Blocks
+
+        return this;
+    }
+
+    //TODO: make javadoc
+    //TODO: TEST
+    @SafeVarargs
+    public final Manager<K> execManyWith(K vrFunc, K... vuFuncs) {
+        Method       vrMeth  = functions.get(vrFunc);
+        List<Method> vuMeths = Arrays.stream(vuFuncs).parallel()
+                .map(functions::get)
+                .collect(Collectors.toList()); //get the methods in parallel, sacrificing null-safety
+        assert vrMeth != null;
+
+        Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
+        assert vrAnno != null;
+
+        if(vrAnno.behavior() == ConcE.CONCURRENT) {
+            Future<Object> vrRetValF = pool.submit(toCallable(vrMeth));
+                //^get the future representing the return value
+            pool.execute(() -> {
+                try {
+                    Object vrRetVal = vrRetValF.get();
+                    //TODO: make this truly parallel instead of running all vuFuncs sequentially?
+                    for(Method meth : vuMeths) {
+                        toRunnable(meth, vrRetVal).run();
+                    }
+                } catch (ExecutionException | InterruptedException e) { e.printStackTrace(); }
+            });
+        }
+        else {
+            try {
+                Object vrRetVal = toCallable(vrMeth).call();
+
+                for(Method meth : vuMeths) {
+                    toRunnable(meth, vrRetVal).run();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
 
         return this;
     }
@@ -250,7 +332,7 @@ public final class Manager<K extends ToMethod> {
                         "\n\tIn position " + i + " (from 0) with type " + paramTypes[i].getCanonicalName() +
                         "\n\tIn call for method " + method.getName() +
                         "\n\tWith manual arguments " + Arrays.toString(args) +
-                        "\n\tPerhaps you should use a shared State parameter?");
+                        "\n\tPerhaps you should use a shared Environment or BotConfig parameter?");
                 assert(false);
             }
         }
@@ -272,6 +354,7 @@ public final class Manager<K extends ToMethod> {
         }
         return params;
     }
+
 
     /**
      * Call a function given to the Builder
@@ -342,7 +425,7 @@ public final class Manager<K extends ToMethod> {
 
         private Builder() {}
 
-        public static <T extends ToMethod> Builder<T> newBuilder() {
+        public static <T extends ToMethod> Builder<T> builder() {
             return new Builder<>();
         }
 
@@ -376,7 +459,8 @@ public final class Manager<K extends ToMethod> {
 
         /**
          * Add an automatically passed parameter. This function is unsafe because of potential
-         * concurrent usage of the variables. It is safer to use {@code addParameter()} instead, but the
+         * concurrent usage of the variables. <strong>If you use the Immutable </strong>
+         * It is safer to use {@code addParameter()} instead, but the
          * object must utilize the reflection-utils package provided with DoubleDrive to use the safe version.
          * Use this function if you know what you are doing and are sure your code follows
          * a {@code ReaderT IO@-like} design pattern. The best use case for this method is adding things like
@@ -400,6 +484,30 @@ public final class Manager<K extends ToMethod> {
         }
 
         /**
+         * This is an alias for {@code addParameterUnsafe()}. It exists to make your code look nicer.
+         * Use it only if you are really adding a parameter that is immutable or has an {@code @Value.Immutable}
+         * annotation. It is not possible to confirm if that annotation exists at runtime, so follow
+         * best practices.
+         * @param param The auto-parameter
+         * @return an updated Builder.
+         */
+        public Builder<T> addImmutableParameter(Object param) {
+            addParameterUnsafe(param);
+            return this;
+        }
+
+        public Builder<T> addImmutableParameter(Object param, Class<?> clazz) {
+            if(parameters.containsKey(clazz)) {
+                System.err.println("\n\nERROR: Cannot put more than one automatic argument of the " +
+                        "same Class into a Manager.");
+                assert(false);
+            }
+            parameters.put(clazz, param);
+
+            return this;
+        }
+
+        /**
          * Add an automatically passed parameter. Please read the implementation notes.
          * @param param The auto-parameter
          * @return An updated Builder
@@ -410,20 +518,15 @@ public final class Manager<K extends ToMethod> {
          * be thread-safe. <strong>All access to shared state must be synchronized,
          * not just modifications.</strong>
          */
-        public Builder<T> addParameter(Object param) {
+        public Builder<T> addMutableParameter(Object param) {
             if(parameters.containsKey(param.getClass())) {
                 System.err.println("\n\nERROR: Cannot put more than one automatic argument of the " +
                         "same Class into a Manager.");
                 assert(false);
             }
 
-            if(ImmutableProxy.isImmutableProxy(param)) {
-                parameters.put(param.getClass(), param);
-            }
-            else {
-                Object immutableParam = ImmutableProxy.create(param);
-                parameters.put(param.getClass(), immutableParam);
-            }
+            Object immutableParam = ImmutableProxy.create(param);
+            parameters.put(param.getClass(), immutableParam);
 
             return this;
         }
@@ -436,4 +539,6 @@ public final class Manager<K extends ToMethod> {
             return new Manager<>(this);
         }
     }
+
+    //Guard is for Subroutines, but ought to be in here for getParamsSentinel()
 }

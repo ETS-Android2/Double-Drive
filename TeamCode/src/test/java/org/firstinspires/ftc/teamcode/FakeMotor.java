@@ -1,12 +1,20 @@
 package org.firstinspires.ftc.teamcode;
 
+import static java.lang.Thread.sleep;
+
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
 
 public class FakeMotor implements DcMotor {
-    private int targetPos;
-    //TODO: complete this
+    private int currentPos = 0;
+    private int targetPos = 0;
+
+
+
+
+
+
 
     @Override
     public MotorConfigurationType getMotorType() {
@@ -40,7 +48,6 @@ public class FakeMotor implements DcMotor {
 
     @Override
     public void setPowerFloat() {
-
     }
 
     @Override
@@ -49,13 +56,28 @@ public class FakeMotor implements DcMotor {
     }
 
     @Override
-    public void setTargetPosition(int position) {
+    synchronized public void setTargetPosition(int position) {
+        targetPos = position;
 
+        while(Math.abs(currentPos-position) > 0) {
+            if(currentPos < position) {
+                try {
+                    sleep(1); //this simulates the time it takes to move the motor
+                    currentPos += 1;
+                } catch (InterruptedException e) { e.printStackTrace(); }
+            }
+            else {
+                try {
+                    sleep(1);
+                    currentPos -= 1;
+                } catch (InterruptedException e) { e.printStackTrace(); }
+            }
+        }
     }
 
     @Override
-    public int getTargetPosition() {
-        return 0;
+    synchronized public int getTargetPosition() {
+        return targetPos;
     }
 
     @Override

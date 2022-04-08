@@ -54,6 +54,10 @@ dependencies {
 
 }
 
+tasks.withType(Test) {
+    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+}
+
 task extractJavadoc {
     doLast {
         def componentIds = configurations.doc.incoming.resolutionResult.allDependencies.collect { it.selected.id }
