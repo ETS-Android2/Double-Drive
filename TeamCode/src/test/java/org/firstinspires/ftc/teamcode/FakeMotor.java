@@ -10,12 +10,6 @@ public class FakeMotor implements DcMotor {
     private int currentPos = 0;
     private int targetPos = 0;
 
-
-
-
-
-
-
     @Override
     public MotorConfigurationType getMotorType() {
         return null;

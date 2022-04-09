@@ -63,12 +63,13 @@ public class ManagerTestFunctions {
 
     }
 
-    @Concurrent//(behavior = ConcE.BLOCKING)
+    @Concurrent(allowAsync = false)
     static LiftLevelI getLiftLevel(@Supplied RobotConfig config) {
         int targetPos = config.winchMotor().getTargetPosition();
         return Levels.toLiftLevel(targetPos);
     }
-    @Concurrent
+//    @Concurrent(allowAsync = false)
+    @Concurrent(allowAsync = false)
     static int getTargetPos(@Supplied RobotConfig config) {
         return config.winchMotor().getTargetPosition();
     }
