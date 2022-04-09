@@ -29,7 +29,7 @@ public class ManagerTestFunctions {
     static String vrFuncConc() {
         System.out.println("Delaying 2000ms...");
         try {
-            sleep(2000);
+            sleep(0);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -65,6 +65,13 @@ public class ManagerTestFunctions {
 
     @Concurrent(allowAsync = false)
     static LiftLevelI getLiftLevel(@Supplied RobotConfig config) {
+        try {
+            sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+
         int targetPos = config.winchMotor().getTargetPosition();
         return Levels.toLiftLevel(targetPos);
     }

@@ -123,9 +123,10 @@ public class ManagerTest {
         funcRaiseLift
                 .execManyWith(GETLIFTLEVEL, RAISELIFT, MANUALPRINT) //prints "Pickup"
                 .execWith(GETLIFTLEVEL, MANUALPRINT) //prints "Carry"
-                .exec(MANUALPRINT, "blah") //this should print before "Carry"
+                .exec(MANUALPRINT, "blah1") //this should print before "Carry"
                 .execManyWith(GETLIFTLEVEL, RAISELIFT)
                 .execWith(GETLIFTLEVEL, MANUALPRINT) //prints "Drop 3"
+                .exec(MANUALPRINT, "blah2") //this should print before "Drop 3"
                 .execManyWith(GETLIFTLEVEL, LOWERLIFT, LOWERLIFT)
                     //^ Note the semantics above. execManyWith() only passes the value once, so
                     //it doesn't change twice

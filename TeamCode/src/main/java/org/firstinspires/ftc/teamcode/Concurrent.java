@@ -19,8 +19,9 @@ public @interface Concurrent {
      * @return Whether or not the method should allow async behavior. true by default, but should be
      * manually set for anything like a getter. {@code allowAsync} has no effect when
      * {@code behavior} is false. Essentially, it is blocking among itself and concurrent among others.
+     *
      * @implNote Due to limitations in the code, it doesn't seem too feasible to allow the concurrency
-     * to continue until the next blocking call. For example, assume enum {@code F} blocks forever.
+     * to continue until the next blocking call. For example, assume function {@code F} blocks forever.
      * <pre>
      * manager.execWith(F, foo)
      *        .exec(bar)
