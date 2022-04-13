@@ -4,7 +4,7 @@ import java.lang.reflect.Method;
 
 public enum AltFunctionality implements ToMethod {
     PRINTNODELAY, MANUALPRINT, RAISELIFT, LOWERLIFT, GETLIFTLEVEL,
-    GETTARGETPOS;
+    GETTARGETPOS, RETURNTRUE_B, RETURNFALSE_B, RETURNFALSE_C, RETURNTRUE_C;
 
     @Override
     public Method toMethod() throws NoSuchMethodException {
@@ -15,6 +15,10 @@ public enum AltFunctionality implements ToMethod {
             case LOWERLIFT:    return ManagerTestFunctions.class.getDeclaredMethod("lowerLift", RobotConfig.class, LiftLevelI.class);
             case GETLIFTLEVEL: return ManagerTestFunctions.class.getDeclaredMethod("getLiftLevel", RobotConfig.class);
             case GETTARGETPOS: return ManagerTestFunctions.class.getDeclaredMethod("getTargetPos", RobotConfig.class);
+            case RETURNFALSE_B: return ManagerTestFunctions.class.getDeclaredMethod("returnFalseBlock");
+            case RETURNTRUE_B: return ManagerTestFunctions.class.getDeclaredMethod("returnTrueBlock");
+            case RETURNFALSE_C: return ManagerTestFunctions.class.getDeclaredMethod("returnFalseConc");
+            case RETURNTRUE_C: return ManagerTestFunctions.class.getDeclaredMethod("returnTrueConc");
             default: return null;
         }
     }

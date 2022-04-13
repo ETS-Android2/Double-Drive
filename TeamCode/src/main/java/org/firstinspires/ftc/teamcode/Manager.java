@@ -31,13 +31,6 @@ import java.util.stream.Collectors;
 
 import de.cronn.reflection.util.immutable.ImmutableProxy;
 
-//Manager is the builder of the entire config. functions, the RobotConfig class, special drive modes,
-//etc. will all live here. functions should live here because it would allow Manager to pass arguments
-//to the functions. Should a method not be found, it does nothing.
-
-//K allows the user to refer to the functions by anything they please. Enums allow implementations
-//to be easily swapped out for one another, or even mixed and matched
-
 
 //TODO: Enable the ability to add parameters via a String, with the @Supplied using a String to
 //      delineate the normal supplied annotation (is this beneficial?)
@@ -91,55 +84,7 @@ public final class Manager<K extends ToMethod> {
      * @param vrAct The action to run, passing the return value to vuAct
      * @param vuAct The action to run using a parameter from vrAct
      */
-    private void actionRun(Action vrAct, Action vuAct)  {
-        actionRun(vrAct, new Object[0], vuAct, new Object[0]);
-    }
 
-    private void actionRun(Action vrAct, Object[] vrFuncArgs, Action vuAct, Object[] vuFuncArgs) {
-        Method vrMeth = vrAct.toMethod();
-        Method vuMeth = vuAct.toMethod();
-
-        Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
-        if(Objects.isNull(vrAnno)) {
-            System.err.println("Unable to find Concurrent annotation for method " +
-                    vrMeth.getName() + " when trying to run it.");
-            assert(false);
-        }
-            if (vrAnno.behavior() == ConcE.CONCURRENT) {
-                Future<Object> vrRetValF = vrAct.toFuture(vrFuncArgs);
-
-                pool.execute(() -> { //Submits it to a queue
-                    try {
-                        Object vrRetVal = vrRetValF.get();
-                        //collect all of the arguments together
-                        ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
-                        allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
-                        allVuArgsAL.add(vrRetVal);
-                        Object[] allVuArgs = allVuArgsAL.toArray();
-
-                        toRunnable(vuMeth, allVuArgs).run();
-                        vrAct.release();
-                    } catch (ExecutionException | InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                });
-            } else { //Blocks
-                try {
-                    Object vrRetVal = toCallable(vrMeth, vrFuncArgs).call();
-                    //collect all of the arguments together
-                    ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
-                    allVuArgsAL.add(vrRetVal);
-                    allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
-                    Object[] allVuArgs = allVuArgsAL.toArray();
-
-                    toRunnable(vuMeth, allVuArgs).run();
-                    vrAct.release();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    System.exit(1);
-                }
-            }
-    }
 
 
 
@@ -154,7 +99,7 @@ public final class Manager<K extends ToMethod> {
      * @param vuFunc Value-using function
      * @return The current Manager
      */
-    public Manager<K> execWith(final K vrFunc, K vuFunc) {
+    public Manager<K> execWith(K vrFunc, K vuFunc) {
         Action vrAct = functions.get(vrFunc);
         Action vuAct = functions.get(vuFunc);
         assert vrAct != null;
@@ -179,45 +124,52 @@ public final class Manager<K extends ToMethod> {
         return this;
     }
 
+    private void actionRun(Action vrAct, Action vuAct)  {
+        actionRun(vrAct, new Object[0], vuAct, new Object[0]);
+    }
 
-    private void actionManyRun(Action vrAct, List<Action> vuActs) {
-
-        ArrayList<Method> vuMeths = new ArrayList<>();
-        for (int i = 0; i < vuActs.size(); i++) {
-            Method meth = vuActs.get(i).toMethod();
-            vuMeths.add(meth);
-        }
-
+    private void actionRun(Action vrAct, Object[] vrFuncArgs, Action vuAct, Object[] vuFuncArgs) {
         Method vrMeth = vrAct.toMethod();
-        assert vrMeth != null;
+        Method vuMeth = vuAct.toMethod();
 
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
-        assert vrAnno != null;
+        if(Objects.isNull(vrAnno)) {
+            System.err.println("Unable to find Concurrent annotation for method " +
+                    vrMeth.getName() + " when trying to run it.");
+            assert(false);
+        }
         if (vrAnno.behavior() == ConcE.CONCURRENT) {
-            Future<Object> vrRetValF = vrAct.toFuture();
-            //^get the future representing the return value
-            pool.execute(() -> {
+            Future<Object> vrRetValF = vrAct.toFuture(vrFuncArgs);
+
+            pool.execute(() -> { //Submits it to a queue
                 try {
                     Object vrRetVal = vrRetValF.get();
-                    //TODO: make this truly parallel instead of running all vuFuncs sequentially?
-                    for (Method meth : vuMeths) {
-                        toRunnable(meth, vrRetVal).run();
-                    }
+                    //collect all of the arguments together
+                    ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
+                    allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
+                    allVuArgsAL.add(vrRetVal);
+                    Object[] allVuArgs = allVuArgsAL.toArray();
+
+                    toRunnable(vuMeth, allVuArgs).run();
                     vrAct.release();
                 } catch (ExecutionException | InterruptedException e) {
                     e.printStackTrace();
                 }
             });
-        } else {
+        } else { //Blocks
             try {
-                Object vrRetVal = toCallable(vrMeth).call();
+                Object vrRetVal = toCallable(vrMeth, vrFuncArgs).call();
+                //collect all of the arguments together
+                ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
+                allVuArgsAL.add(vrRetVal);
+                allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
+                Object[] allVuArgs = allVuArgsAL.toArray();
 
-                for (Method meth : vuMeths) {
-                    toRunnable(meth, vrRetVal).run();
-                }
+                toRunnable(vuMeth, allVuArgs).run();
                 vrAct.release();
             } catch (Exception e) {
                 e.printStackTrace();
+                System.exit(1);
             }
         }
     }
@@ -255,33 +207,33 @@ public final class Manager<K extends ToMethod> {
 
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
         assert vrAnno != null;
-            if (vrAnno.behavior() == ConcE.CONCURRENT) {
-                Future<Object> vrRetValF = vrAct.toFuture();
-                //^get the future representing the return value
-                pool.execute(() -> {
-                    try {
-                        Object vrRetVal = vrRetValF.get();
-                        //TODO: make this truly parallel instead of running all vuFuncs sequentially?
-                        for (Method meth : vuMeths) {
-                            toRunnable(meth, vrRetVal).run();
-                        }
-                        vrAct.release();
-                    } catch (ExecutionException | InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                });
-            } else {
+        if (vrAnno.behavior() == ConcE.CONCURRENT) {
+            Future<Object> vrRetValF = vrAct.toFuture();
+            //^get the future representing the return value
+            pool.execute(() -> {
                 try {
-                    Object vrRetVal = toCallable(vrMeth).call();
-
+                    Object vrRetVal = vrRetValF.get();
+                    //TODO: make this truly parallel instead of running all vuFuncs sequentially?
                     for (Method meth : vuMeths) {
                         toRunnable(meth, vrRetVal).run();
                     }
                     vrAct.release();
-                } catch (Exception e) {
+                } catch (ExecutionException | InterruptedException e) {
                     e.printStackTrace();
                 }
+            });
+        } else {
+            try {
+                Object vrRetVal = toCallable(vrMeth).call();
+
+                for (Method meth : vuMeths) {
+                    toRunnable(meth, vrRetVal).run();
+                }
+                vrAct.release();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
+        }
         return this;
     }
 
@@ -295,17 +247,16 @@ public final class Manager<K extends ToMethod> {
         Action act = functions.get(key);
         assert act != null;
 
-        Method func = act.toMethod();
+        Method meth = act.toMethod();
 
-
-        if (Objects.isNull(func)) {
+        if (Objects.isNull(meth)) {
             System.out.println("Failed to find function with key " + key +
                     "\n\tDid you ensure to update your Manager with the supplied functions?"+
                     "\n\tDid you ensure to update the use sites of your functions?");
 
             assert false;
         }
-        Concurrent behavior = func.getDeclaredAnnotation(Concurrent.class);
+        Concurrent behavior = meth.getDeclaredAnnotation(Concurrent.class);
         if(Objects.isNull(behavior)) {
             System.err.println("\n\nERROR IN EXEC FOR FUNCTION " + key + ": Method defined by "+ key+
                     " must have a Behavior annotation.\n\n");
@@ -316,14 +267,91 @@ public final class Manager<K extends ToMethod> {
 
         switch (concStatus) {
             case CONCURRENT: {
-                pool.execute(toRunnable(func, args));
+                pool.execute(toRunnable(meth, args));
                 return this;
             }
             case BLOCKING: {
-                toRunnable(func, args).run();
+                toRunnable(meth, args).run();
                 return this;
             }
             default: return this;
+        }
+    }
+
+    public Manager<K> execIf(K key, K func) {
+        Action act = functions.get(key);
+        Action funcAct = functions.get(func);
+        assert act != null;
+        assert funcAct != null;
+
+        actionRunIf(act, new Object[0], funcAct, new Object[0]);
+
+        return this;
+    }
+
+    /**
+     * See documentation for {@code actionRun()}. This function behaves identically, except it will
+     * abort if the action returns false. The action must return a boolean.
+     */
+    private void actionRunIf(Action vrAct, Object[] vrFuncArgs, Action vuAct, Object[] vuFuncArgs) {
+        Method vrMeth = vrAct.toMethod();
+        Method vuMeth = vuAct.toMethod();
+
+        if(!vrMeth.getReturnType().equals(boolean.class)) {
+            System.out.println("Key " + vrAct + "in execIf must return boolean (must not be Boolean)");
+            assert false;
+        }
+
+        Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
+        if(Objects.isNull(vrAnno)) {
+            System.err.println("Unable to find Concurrent annotation for method " +
+                    vrMeth.getName() + " when trying to run it.");
+            assert(false);
+        }
+        if (vrAnno.behavior() == ConcE.CONCURRENT) {
+            Future<Object> vrRetValF = vrAct.toFuture(vrFuncArgs);
+
+            pool.execute(() -> { //Submits it to a queue
+                try {
+                    Object vrRetVal = vrRetValF.get();
+
+                    if(vrRetVal.equals(false)) {
+                        vrAct.release();
+                        return;
+                    }
+                    //collect all of the arguments together
+                    ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
+                    allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
+                    allVuArgsAL.add(vrRetVal);
+                    Object[] allVuArgs = allVuArgsAL.toArray();
+
+                    toRunnable(vuMeth, allVuArgs).run();
+                    vrAct.release();
+                } catch (ExecutionException | InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+        } else { //Blocks
+            try {
+                Object vrRetVal = toCallable(vrMeth, vrFuncArgs).call();
+
+                if(vrRetVal.equals(false)) {
+                    vrAct.release();
+                    return;
+                }
+
+                //collect all of the arguments together
+                ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
+                allVuArgsAL.add(vrRetVal);
+                allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
+                Object[] allVuArgs = allVuArgsAL.toArray();
+
+                toRunnable(vuMeth, allVuArgs).run();
+                vrAct.release();
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.exit(1);
+            }
         }
     }
 
@@ -458,8 +486,6 @@ public final class Manager<K extends ToMethod> {
         }
         return params;
     }
-
-
 
     /**
      * Wait for all given tasks to complete before continuing, allowing a Concurrent function

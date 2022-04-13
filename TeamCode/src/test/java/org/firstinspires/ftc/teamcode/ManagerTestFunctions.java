@@ -47,6 +47,36 @@ public class ManagerTestFunctions {
         return "This string was passed from a blocking value-returning function";
     }
 
+    @Concurrent(behavior = ConcE.BLOCKING)
+    static boolean returnTrueBlock() {
+        return true;
+    }
+
+    @Concurrent(behavior = ConcE.BLOCKING)
+    static boolean returnFalseBlock() {
+        try {
+            sleep(3000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    @Concurrent
+    static boolean returnFalseConc() {
+        try {
+            sleep(3000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    @Concurrent
+    static boolean returnTrueConc() {
+        return true;
+    }
+
 
     //LIFT TESTING FUNCTIONS
     @Concurrent

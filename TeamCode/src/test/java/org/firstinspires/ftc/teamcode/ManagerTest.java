@@ -32,7 +32,7 @@ public class ManagerTest {
                 .await();
     }
 
-////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
     @Test
     public void funcError() {
         Manager<ToMethod> funcErrManager = Manager.Builder.builder()
@@ -115,11 +115,7 @@ public class ManagerTest {
                 .addFunc(AltFunctionality.GETTARGETPOS)
                 .addImmutableParameter(raiseLiftConfig, RobotConfig.class)
                 .build();
-        //TODO: THIS SHOULD ALLOW CONCURRENCY.
-        //      Perhaps it would be possible to add to the annotations for @Concurrent.
-        //      Such as waiting for a task marked as (allowAsyncAccess = false) when asked to run
-        //      A task of the same value. This means the overall control flow would go on, but each
-        //      request for that function would not be instantly filled
+
         funcRaiseLift
                 .execManyWith(GETLIFTLEVEL, RAISELIFT, MANUALPRINT) //prints "Pickup"
                 .execWith(GETLIFTLEVEL, MANUALPRINT) //prints "Carry"
@@ -134,7 +130,6 @@ public class ManagerTest {
                 .execWith(GETTARGETPOS, MANUALPRINT) //prints "400"
                 .await();
 
-        //TODO: COMPLETE
     }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,5 +157,32 @@ public class ManagerTest {
         funcExecManyWithBlock
                 .execManyWith(VRFUNCBLOCK, MANUALPRINT, MANUALPRINT)
                 .exec(MANUALPRINT, "This is a manually passed string");
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    @Test
+    public void funcExecIfBlock() {
+        Manager<ToMethod> funcExecIfBlock = Manager.Builder.builder()
+                .addFunc(RETURNFALSE_B)
+                .addFunc(RETURNTRUE_B)
+                .addFunc(MANUALPRINT)
+                .build();
+
+        funcExecIfBlock
+                .execIf(RETURNFALSE_B, MANUALPRINT) //shouldn't even print, but should delay
+                .execIf(RETURNTRUE_B, MANUALPRINT); //prints true. execIf passes true if it succeeds
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    @Test
+    public void funcExecIfConc() {
+        Manager<ToMethod> funcExecIfConc = Manager.Builder.builder()
+                .addFunc(RETURNFALSE_C)
+                .addFunc(RETURNTRUE_C)
+                .addFunc(MANUALPRINT)
+                .build();
+
+        funcExecIfConc
+                .execIf(RETURNFALSE_C, MANUALPRINT) //shouldn't even print, but should delay
+                .execIf(RETURNTRUE_C, MANUALPRINT) //prints true. execIf passes true if it succeeds
+                .await();
     }
 }
