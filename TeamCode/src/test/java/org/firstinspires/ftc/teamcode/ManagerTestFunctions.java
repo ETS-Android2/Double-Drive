@@ -89,8 +89,6 @@ public class ManagerTestFunctions {
     static void lowerLift(@Supplied RobotConfig config, LiftLevelI lift) {
         LiftLevelI downLevel = lift.downMotorPos();
         config.winchMotor().setTargetPosition(downLevel.currMotorPos());
-
-
     }
 
     @Concurrent(allowAsync = false)

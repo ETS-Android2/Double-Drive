@@ -278,14 +278,34 @@ public final class Manager<K extends ToMethod> {
         }
     }
 
-    public Manager<K> execIf(K key, K func) {
-        Action act = functions.get(key);
+    public Manager<K> execIf(K boolF, K func) {
+        Action act = functions.get(boolF);
         Action funcAct = functions.get(func);
         assert act != null;
         assert funcAct != null;
 
         actionRunIf(act, new Object[0], funcAct, new Object[0]);
 
+        return this;
+    }
+
+    public Manager<K> execIf(K boolF, Object[] boolFArgs, K func, Object[] runArgs) {
+        Action act = functions.get(boolF);
+        Action funcAct = functions.get(func);
+        assert act != null;
+        assert funcAct != null;
+
+        actionRunIf(act, boolFArgs, funcAct, runArgs);
+        return this;
+    }
+
+    public Manager<K> execIf(K boolF, Object[] boolFArgs, K func) {
+        Action act = functions.get(boolF);
+        Action funcAct = functions.get(func);
+        assert act != null;
+        assert funcAct != null;
+
+        actionRunIf(act, boolFArgs, funcAct, new Object[0]);
         return this;
     }
 
