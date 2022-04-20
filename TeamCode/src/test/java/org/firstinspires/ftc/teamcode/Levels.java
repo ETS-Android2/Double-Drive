@@ -32,6 +32,11 @@ public class Levels {
             return pickup;
         }
 
+        @Override
+        public double basketPos() {
+            return 0.81;
+        }
+
         public String toString() {
             return "Pickup";
         }
@@ -53,6 +58,11 @@ public class Levels {
             return carry;
         }
 
+        @Override
+        public double basketPos() {
+            return 0.55;
+        }
+
         public String toString() {
             return "Carry";
         }
@@ -72,6 +82,11 @@ public class Levels {
         @Override
         public int currMotorPos() {
             return drop_3;
+        }
+
+        @Override
+        public double basketPos() {
+            return 0.3;
         }
 
         public String toString() {

@@ -5,5 +5,6 @@ public interface LiftLevelI {
     LiftLevelI upMotorPos();
     LiftLevelI downMotorPos();
     int currMotorPos();
+    double basketPos();
 
 }

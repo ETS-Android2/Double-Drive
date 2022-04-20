@@ -278,14 +278,34 @@ public final class Manager<K extends ToMethod> {
         }
     }
 
-    public Manager<K> execIf(K key, K func) {
-        Action act = functions.get(key);
+    public Manager<K> execIf(K boolF, K func) {
+        Action act = functions.get(boolF);
         Action funcAct = functions.get(func);
         assert act != null;
         assert funcAct != null;
 
         actionRunIf(act, new Object[0], funcAct, new Object[0]);
 
+        return this;
+    }
+
+    public Manager<K> execIf(K boolF, Object[] boolFArgs, K func, Object[] runArgs) {
+        Action act = functions.get(boolF);
+        Action funcAct = functions.get(func);
+        assert act != null;
+        assert funcAct != null;
+
+        actionRunIf(act, boolFArgs, funcAct, runArgs);
+        return this;
+    }
+
+    public Manager<K> execIf(K boolF, Object[] boolFArgs, K func) {
+        Action act = functions.get(boolF);
+        Action funcAct = functions.get(func);
+        assert act != null;
+        assert funcAct != null;
+
+        actionRunIf(act, boolFArgs, funcAct, new Object[0]);
         return this;
     }
 
@@ -366,7 +386,7 @@ public final class Manager<K extends ToMethod> {
         Object[] params = getParams(method, args);
 
         //return the runnable
-        if(method.getParameterCount() == 0) {
+        if(method.getParameterTypes().length == 0) {//(method.getParameterCount() == 0) {
             return () -> {
                 try {
                     return (T) method.invoke(null);
@@ -407,7 +427,7 @@ public final class Manager<K extends ToMethod> {
         Object[] params = getParams(method, args);
 
         //return the runnable
-        if(method.getParameterCount() == 0) {
+        if(method.getParameterTypes().length == 0){//(method.getParameterCount() == 0) { //FIXME: API UPDATE WHEN?
             return () -> {
                 try {
                     method.invoke(null);
@@ -434,7 +454,7 @@ public final class Manager<K extends ToMethod> {
      * Used by {@code toRunnable()} and {@code toCallable()}.
      */
     private Object[] getParams(Method method, Object... args) {
-        int parameterCount = method.getParameterCount();
+        int parameterCount = method.getParameterTypes().length;//method.getParameterCount();
         Class<?>[] paramTypes = method.getParameterTypes();
         Object[]   params = new Object[parameterCount];
         Boolean[]  paramMkdSupplied = new Boolean[parameterCount];
