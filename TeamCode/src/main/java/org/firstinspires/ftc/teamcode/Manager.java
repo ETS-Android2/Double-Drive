@@ -386,7 +386,7 @@ public final class Manager<K extends ToMethod> {
         Object[] params = getParams(method, args);
 
         //return the runnable
-        if(method.getParameterCount() == 0) {
+        if(method.getParameterTypes().length == 0) {//(method.getParameterCount() == 0) {
             return () -> {
                 try {
                     return (T) method.invoke(null);
@@ -427,7 +427,7 @@ public final class Manager<K extends ToMethod> {
         Object[] params = getParams(method, args);
 
         //return the runnable
-        if(method.getParameterCount() == 0) {
+        if(method.getParameterTypes().length == 0){//(method.getParameterCount() == 0) { //FIXME: API UPDATE WHEN?
             return () -> {
                 try {
                     method.invoke(null);
@@ -454,7 +454,7 @@ public final class Manager<K extends ToMethod> {
      * Used by {@code toRunnable()} and {@code toCallable()}.
      */
     private Object[] getParams(Method method, Object... args) {
-        int parameterCount = method.getParameterCount();
+        int parameterCount = method.getParameterTypes().length;//method.getParameterCount();
         Class<?>[] paramTypes = method.getParameterTypes();
         Object[]   params = new Object[parameterCount];
         Boolean[]  paramMkdSupplied = new Boolean[parameterCount];

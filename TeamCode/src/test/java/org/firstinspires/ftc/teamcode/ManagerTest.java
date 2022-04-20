@@ -185,4 +185,8 @@ public class ManagerTest {
                 .execIf(RETURNTRUE_C, MANUALPRINT) //prints true. execIf passes true if it succeeds
                 .await();
     }
+    @Test
+    public void funcTestWithArgs() {
+
+    }
 }
