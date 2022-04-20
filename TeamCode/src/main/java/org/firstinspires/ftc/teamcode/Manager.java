@@ -35,7 +35,7 @@ import de.cronn.reflection.util.immutable.ImmutableProxy;
 //TODO: Enable the ability to add parameters via a String, with the @Supplied using a String to
 //      delineate the normal supplied annotation (is this beneficial?)
 
-//TODO: Conditional run
+//TODO: Conditional run - need -many- variants
 //TODO: Scheduled run
 //TODO: all-to-one variant of execWith
 
@@ -50,7 +50,7 @@ import de.cronn.reflection.util.immutable.ImmutableProxy;
 public final class Manager<K extends ToMethod> {
     private final Comparator<Class<?>>      classComparator = Comparator.comparing(Class::getCanonicalName);
     private final Comparator<K>             enumComparator  = Comparator.comparing(Objects::hashCode);
-    private final TreeMap<K, Method>        methods         = new TreeMap<>(enumComparator);
+    private final TreeMap<K, Method>        methods         = new TreeMap<>(enumComparator); //Do not directly access this. Use `functions` instead
     private final TreeMap<K, Action>        functions       = new TreeMap<>(enumComparator);
     private final TreeMap<Class<?>, Object> parameters      = new TreeMap<>(classComparator);
     private int numThreads;
@@ -489,13 +489,13 @@ public final class Manager<K extends ToMethod> {
 
     /**
      * Wait for all given tasks to complete before continuing, allowing a Concurrent function
-     * to wait without being marked as Blocking. It also flushes the queue
+     * to wait without being marked as Blocking. This will wait a maximum of 10 seconds.
      * @return Itself
      */
     public Manager<K> await() {
         try {
             pool.shutdown();
-            pool.awaitTermination(7, TimeUnit.SECONDS);
+            pool.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -635,7 +635,7 @@ public final class Manager<K extends ToMethod> {
     }
 
     /**
-     * Actions serve to hold Ks in order to manager their ability to be executed. It holds a Semaphore
+     * Actions serve to hold {@code K}s in order to manager their ability to be executed. It holds a Semaphore
      * and the action along with some utility methods.
      */
     private class Action implements ToMethod {
