@@ -36,9 +36,10 @@ public class ManagerTeleOp extends LinearOpMode {
             telemetry.addData("gamepad1 a ", gamepad1.a); //this is debug info
             telemetry.addData("gamepad1 b ", gamepad1.b);
             telemetry.addData("ticker ", ticker);
-            telemetry.update();
+//            telemetry.update();
             ticker++;
 
+            //TODO: Add scheduled execution, then implement auto lift and auto return
             manager .exec(DRIVE, gamepad1)
                     //LIFT & BASKET
                     .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "a"), RAISELIFT)

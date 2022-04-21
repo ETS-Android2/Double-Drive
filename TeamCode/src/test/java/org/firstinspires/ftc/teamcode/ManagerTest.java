@@ -188,6 +188,9 @@ public class ManagerTest {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     @Test
     public void funcTestWithArgs() {
-
+//        Manager<ToMethod> withArgs = Manager.Builder.builder()
+//                .addFunc(RETURNTRUE_B)
+//                .addFunc()
+//                .build();
     }
 }

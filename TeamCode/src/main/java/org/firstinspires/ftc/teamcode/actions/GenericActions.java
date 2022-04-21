@@ -13,6 +13,7 @@ import org.firstinspires.ftc.teamcode.ToMethod;
 import static org.firstinspires.ftc.teamcode.RobotUtils.*;
 
 import java.lang.reflect.Method;
+import java.util.Objects;
 
 public enum GenericActions implements ToMethod {
     CONTROLLER_CHECK, PRINT_TO_TELEMETRY, DRIVE, SPIN_ABDUCTOR, TURBO;
@@ -30,19 +31,24 @@ public enum GenericActions implements ToMethod {
     }
 
     @Concurrent
-    static void spinAbductor(@Supplied BotConfig robot, String direction) {
+    public static void spinAbductor(@Supplied BotConfig robot, String direction) {
         switch(direction.toLowerCase()) {
             case "cw"  : robot.abductor.setPower(0.7); break;
             case "ccw" : robot.abductor.setPower(-0.7); break;
             case "halt": robot.abductor.setPower(0); break;
         }
+        if(Objects.isNull(direction)) {
+            throw new IllegalArgumentException();
+        }
     }
 
     @Concurrent
-    static void turbo(@Supplied BotConfig robot, String direction) {
+    public static void turbo(@Supplied BotConfig robot, String direction) {
         LiftLevelI lift = LiftActions.getLiftLevel(robot);
         if( lift instanceof LiftActions.Drop_3
-         || lift instanceof LiftActions.Pickup) { return; }
+         || lift instanceof LiftActions.Pickup) {
+            return;
+        }
         
         switch(direction) {
             case "fw":
@@ -57,13 +63,13 @@ public enum GenericActions implements ToMethod {
     }
 
     @Concurrent(behavior = ConcE.BLOCKING)
-    static void printToTelemetry(Telemetry telemetry, String str) {
+    public static void printToTelemetry(Telemetry telemetry, String str) {
         telemetry.addData(str, "");
         telemetry.update();
     }
 
     @Concurrent
-    static void drive(@Supplied BotConfig robot, Gamepad gamepad) {
+    public static void drive(@Supplied BotConfig robot, Gamepad gamepad) {
         final double TOLERANCE = 0.1;
 
         double straif = -gamepad.left_stick_x;
@@ -99,7 +105,7 @@ public enum GenericActions implements ToMethod {
     }
 
     @Concurrent
-    static boolean controllerCheck(Gamepad controller, String input) {
+    public static boolean controllerCheck(Gamepad controller, String input) {
 //        return true;
         switch(input.toLowerCase()) {
             case "a" : return controller.a;

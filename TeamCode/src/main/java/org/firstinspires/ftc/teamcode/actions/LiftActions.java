@@ -34,7 +34,7 @@ public enum LiftActions implements ToMethod {
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
     @Concurrent
-    static void drop(@Supplied BotConfig robot) {
+    public static void drop(@Supplied BotConfig robot) {
         LiftLevelI lift = getLiftLevel(robot);
         if(lift instanceof Drop_3) {
             robot.basket.setPosition(0);
@@ -43,7 +43,7 @@ public enum LiftActions implements ToMethod {
 
 
     @Concurrent//(allowAsync = false)
-    static void raiseLift(@Supplied BotConfig config) {
+    public static void raiseLift(@Supplied BotConfig config) {
         LiftLevelI lift = getLiftLevel(config);
         if(!config.winchMotor.isBusy()) {
             LiftLevelI upLevel = lift.upMotorPos();
@@ -53,7 +53,7 @@ public enum LiftActions implements ToMethod {
     }
 
     @Concurrent//(allowAsync = false)
-    static void lowerLift(@Supplied BotConfig config) {
+    public static void lowerLift(@Supplied BotConfig config) {
         LiftLevelI lift = getLiftLevel(config);
         if (!config.winchMotor.isBusy()) {
             LiftLevelI downLevel = lift.downMotorPos();

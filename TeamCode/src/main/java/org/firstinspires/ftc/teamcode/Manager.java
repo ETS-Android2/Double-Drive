@@ -358,6 +358,7 @@ public final class Manager<K extends ToMethod> {
 
                     if(vrRetVal.equals(false)) {
                         vrAct.release();
+                        vuAct.release();
                         return;
                     }
                     //collect all of the arguments together
@@ -513,9 +514,9 @@ public final class Manager<K extends ToMethod> {
 
         //Check if anything has an annotation. If so, replace those by the args
         if(numAnno > 0) {
-            if(numAnno != args.length) {
+            if(numAnno > args.length) { //TODO: ENSURE THIS DOESN'T CAUSE ANY BUGS
                 System.err.println("Number of arguments provided in args must be equal to number " +
-                        "required for the Method, as determined by the number of Supplied annotations on arguments");
+                        "required for Method "+method.getName()+", as determined by the number of Supplied annotations on arguments");
                 throw new TooFewArgumentsException("Number of arguments provided in args must be equal to number " +
                         "required for the Method, as determined by the number of Supplied annotations on arguments");
             }
