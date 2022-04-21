@@ -2,9 +2,8 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import static org.firstinspires.ftc.teamcode.LiftActions.*;
-
-import java.util.concurrent.Callable;
+import static org.firstinspires.ftc.teamcode.actions.LiftActions.*;
+import static org.firstinspires.ftc.teamcode.actions.GenericActions.*;
 
 @TeleOp(name="Manager Control Test", group="Pushbot")
 public class ManagerTeleOp extends LinearOpMode {
@@ -20,9 +19,15 @@ public class ManagerTeleOp extends LinearOpMode {
             .addFunc(PRINT_TO_TELEMETRY)
             .addFunc(DRIVE)
             .addFunc(DROP)
+            .addFunc(SPIN_ABDUCTOR)
+            .addFunc(TURBO)
             .addParameterUnsafe(robot)
             .build();
 
+    //FIXME: errors are not thrown properly, NullPointerExceptions are thrown instead
+    //FIXME: when manual args are not supplied, ArrayOutOfBoundsExceptions are thrown instead
+    //TODO: execIf with packaged datatype for a boolean AND arguments to pass when successful,
+    //      such as for the abductor
     public void runOpMode() {
         robot.init(hardwareMap);
 
@@ -35,17 +40,22 @@ public class ManagerTeleOp extends LinearOpMode {
             ticker++;
 
             manager .exec(DRIVE, gamepad1)
+                    //LIFT & BASKET
                     .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "a"), RAISELIFT)
                     .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "b"), LOWERLIFT)
                     .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "x"), DROP)
-                    .exec(PRINT_TO_TELEMETRY, telemetry, "(DEBUG) This was manually printed")
+                    //TURBO
+                    .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "x"), TURBO, mkArr("fw"))
+                    .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "y"), TURBO, mkArr("bw"))
+                    //ABDUCTOR
+                    .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "lb"), SPIN_ABDUCTOR, mkArr("cw")) //FIXME (line 28)
+                    .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "rb"), SPIN_ABDUCTOR, mkArr("ccw"))
+                    .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "bump_not_held"), SPIN_ABDUCTOR, mkArr("halt"))
+//                    .exec(PRINT_TO_TELEMETRY, telemetry, "(DEBUG) This was manually printed")
                     .await();
         }
     }
 
-    //FIXME: the second argument of execIf should release its semaphore
-    //FIXME: errors are not thrown properly, NullPointerExceptions are thrown instead
-    //FIXME: when manual args are not supplied, ArrayOutOfBoundsExceptions are thrown instead
     @SafeVarargs //check for heap pollution (how?)
     private final <T> T[] mkArr(T... literals) {
         return literals;

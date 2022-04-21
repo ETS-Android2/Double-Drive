@@ -1,7 +1,10 @@
 package org.firstinspires.ftc.teamcode;
 
 
-
+import org.firstinspires.ftc.teamcode.exceptions.AnnotationNotPresentException;
+import org.firstinspires.ftc.teamcode.exceptions.TooFewArgumentsException;
+import org.firstinspires.ftc.teamcode.exceptions.UnownedArgumentException;
+import org.firstinspires.ftc.teamcode.exceptions.UnownedMethodException;
 import org.immutables.value.Value;
 
 import java.lang.annotation.Annotation;
@@ -76,7 +79,7 @@ public final class Manager<K extends ToMethod> {
     }
 
     private Manager() {
-        pool = new ScheduledThreadPoolExecutor(10);
+        pool = new ScheduledThreadPoolExecutor(8);
     }
 
     /**
@@ -84,8 +87,6 @@ public final class Manager<K extends ToMethod> {
      * @param vrAct The action to run, passing the return value to vuAct
      * @param vuAct The action to run using a parameter from vrAct
      */
-
-
 
 
     /**
@@ -102,22 +103,44 @@ public final class Manager<K extends ToMethod> {
     public Manager<K> execWith(K vrFunc, K vuFunc) {
         Action vrAct = functions.get(vrFunc);
         Action vuAct = functions.get(vuFunc);
-        assert vrAct != null;
-        assert vuAct != null;
+//        assert vrAct != null;
+//        assert vuAct != null;
 
+        if(Objects.isNull(vrAct)) {
+            throw new UnownedMethodException("Failed to find function with key " + vrFunc +
+                    "\n\tDid you ensure to update your Manager with the supplied functions?" +
+                    "\n\tDid you ensure to update the use sites of your functions?" +
+                    "\n\tDid you ensure to update the ToMethod function?");
+        }
+        if(Objects.isNull(vuAct)) {
+            throw new UnownedMethodException("Failed to find function with key " + vrFunc +
+                    "\n\tDid you ensure to update your Manager with the supplied functions?" +
+                    "\n\tDid you ensure to update the use sites of your functions?" +
+                    "\n\tDid you ensure to update the ToMethod function?");
+        }
         actionRun(vrAct, vuAct);
 
         return this;
     }
 
     //TODO: make javadoc
-    //TODO: TEST ALL EXTRA MAN ARG FUNCTIONS
     public Manager<K> execWith(K vrFunc, Object[] vrFuncArgs, K vuFunc, Object[] vuFuncArgs) {
         Action vrAct = functions.get(vrFunc);
         Action vuAct = functions.get(vuFunc);
-
-        assert vrAct != null;
-        assert vuAct != null;
+//        assert vrAct != null;
+//        assert vuAct != null;
+        if(Objects.isNull(vrAct)) {
+            throw new UnownedMethodException("Failed to find function with key " + vrFunc +
+                    "\n\tDid you ensure to update your Manager with the supplied functions?" +
+                    "\n\tDid you ensure to update the use sites of your functions?" +
+                    "\n\tDid you ensure to update the ToMethod function?");
+        }
+        if(Objects.isNull(vuAct)) {
+            throw new UnownedMethodException("Failed to find function with key " + vrFunc +
+                    "\n\tDid you ensure to update your Manager with the supplied functions?" +
+                    "\n\tDid you ensure to update the use sites of your functions?" +
+                    "\n\tDid you ensure to update the ToMethod function?");
+        }
 
         actionRun(vrAct, vrFuncArgs, vuAct, vuFuncArgs);
 
@@ -136,7 +159,7 @@ public final class Manager<K extends ToMethod> {
         if(Objects.isNull(vrAnno)) {
             System.err.println("Unable to find Concurrent annotation for method " +
                     vrMeth.getName() + " when trying to run it.");
-            assert(false);
+            throw new AnnotationNotPresentException("Method "+vrMeth.getName()+" must have a Concurrent annotation");
         }
         if (vrAnno.behavior() == ConcE.CONCURRENT) {
             Future<Object> vrRetValF = vrAct.toFuture(vrFuncArgs);
@@ -152,6 +175,7 @@ public final class Manager<K extends ToMethod> {
 
                     toRunnable(vuMeth, allVuArgs).run();
                     vrAct.release();
+                    vuAct.release();
                 } catch (ExecutionException | InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -167,6 +191,7 @@ public final class Manager<K extends ToMethod> {
 
                 toRunnable(vuMeth, allVuArgs).run();
                 vrAct.release();
+                vuAct.release();
             } catch (Exception e) {
                 e.printStackTrace();
                 System.exit(1);
@@ -178,24 +203,12 @@ public final class Manager<K extends ToMethod> {
     //TODO: make actionManyRun()
     @SafeVarargs
     public final Manager<K> execManyWith(K vrFunc, K... vuFuncs) {
-//        Action vrAct = functions.get(vrFunc);
-//
-//        List<Action> vuActs = Arrays.stream(vuFuncs).parallel()
-//                .map(functions::get)
-//                .collect(Collectors.toList()); //get the actions in parallel, sacrificing null-safety
-//
-//        assert vrAct != null;
-//
-//        if(vrAct.isRequirePermit()) {
-//            pool.execute(() -> actionManyRun(vrAct, vuActs));
-//
-//        }
-//        else {
-//            actionManyRun(vrAct, vuActs);
-//        }
-//
-//        return this;
         Action vrAct = functions.get(vrFunc);
+        if(Objects.isNull(vrAct))
+            throw new UnownedMethodException("Failed to find function with key " + vrFunc +
+                    "\n\tDid you ensure to update your Manager with the supplied functions?"+
+                    "\n\tDid you ensure to update the use sites of your functions?"+
+                    "\n\tDid you ensure to update the ToMethod function?");
 
         Method vrMeth = vrAct.toMethod();
 
@@ -203,19 +216,21 @@ public final class Manager<K extends ToMethod> {
                 .map(functions::get)
                 .map(Action::toMethod)
                 .collect(Collectors.toList()); //get the methods in parallel, sacrificing null-safety
-        assert vrMeth != null;
+//        assert vrMeth != null;
 
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
-        assert vrAnno != null;
+        if(Objects.isNull(vrAnno))
+            throw new AnnotationNotPresentException("Method "+vrFunc+" must have a Concurrent annotation");
+
         if (vrAnno.behavior() == ConcE.CONCURRENT) {
             Future<Object> vrRetValF = vrAct.toFuture();
             //^get the future representing the return value
             pool.execute(() -> {
                 try {
                     Object vrRetVal = vrRetValF.get();
-                    //TODO: make this truly parallel instead of running all vuFuncs sequentially?
-                    for (Method meth : vuMeths) {
-                        toRunnable(meth, vrRetVal).run();
+                    for (int i=0; i<vuMeths.size(); i++) {
+                        toRunnable(vuMeths.get(i), vrRetVal).run();
+                        functions.get(vuFuncs[i]).release();
                     }
                     vrAct.release();
                 } catch (ExecutionException | InterruptedException e) {
@@ -226,8 +241,9 @@ public final class Manager<K extends ToMethod> {
             try {
                 Object vrRetVal = toCallable(vrMeth).call();
 
-                for (Method meth : vuMeths) {
-                    toRunnable(meth, vrRetVal).run();
+                for (int i=0; i<vuMeths.size(); i++) {
+                    toRunnable(vuMeths.get(i), vrRetVal).run();
+                    functions.get(vuFuncs[i]).release();
                 }
                 vrAct.release();
             } catch (Exception e) {
@@ -238,10 +254,10 @@ public final class Manager<K extends ToMethod> {
     }
 
     /**
-     * Call a function given to the Builder
+     * Unconditionally execute a function
      * @param key The Method represented by the Manager's K type
-     * @param args The manual arguments
-     * @return An updated Builder
+     * @param args The manual arguments of the function
+     * @return An updated Manager
      */
     public Manager<K> exec(K key, Object... args) {
         Action act = functions.get(key);
@@ -252,26 +268,31 @@ public final class Manager<K extends ToMethod> {
         if (Objects.isNull(meth)) {
             System.out.println("Failed to find function with key " + key +
                     "\n\tDid you ensure to update your Manager with the supplied functions?"+
-                    "\n\tDid you ensure to update the use sites of your functions?");
+                    "\n\tDid you ensure to update the use sites of your functions?"+
+                    "\n\tDid you ensure to update the ToMethod function?");
 
-            assert false;
+            throw new UnownedMethodException("Failed to find function with key " + key +
+                    "\n\tDid you ensure to update your Manager with the supplied functions?"+
+                    "\n\tDid you ensure to update the use sites of your functions?"+
+                    "\n\tDid you ensure to update the ToMethod function?");
         }
         Concurrent behavior = meth.getDeclaredAnnotation(Concurrent.class);
         if(Objects.isNull(behavior)) {
             System.err.println("\n\nERROR IN EXEC FOR FUNCTION " + key + ": Method defined by "+ key+
                     " must have a Behavior annotation.\n\n");
-            assert(false);
-//            System.exit(11);
+            throw new AnnotationNotPresentException("Method defined by "+key+" must have a Behavior annotation");
         }
         ConcE concStatus = behavior.behavior();
 
         switch (concStatus) {
             case CONCURRENT: {
                 pool.execute(toRunnable(meth, args));
+                act.release();
                 return this;
             }
             case BLOCKING: {
                 toRunnable(meth, args).run();
+                act.release();
                 return this;
             }
             default: return this;
@@ -319,14 +340,14 @@ public final class Manager<K extends ToMethod> {
 
         if(!vrMeth.getReturnType().equals(boolean.class)) {
             System.out.println("Key " + vrAct + "in execIf must return boolean (must not be Boolean)");
-            assert false;
+            throw new IllegalArgumentException("Key " + vrAct + "in execIf must return boolean (must not be Boolean)");
         }
 
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
         if(Objects.isNull(vrAnno)) {
             System.err.println("Unable to find Concurrent annotation for method " +
-                    vrMeth.getName() + " when trying to run it.");
-            assert(false);
+                    vrMeth.getName());
+            throw new AnnotationNotPresentException("Method defined by "+vrMeth.getName()+" must have a Behavior annotation");
         }
         if (vrAnno.behavior() == ConcE.CONCURRENT) {
             Future<Object> vrRetValF = vrAct.toFuture(vrFuncArgs);
@@ -347,6 +368,7 @@ public final class Manager<K extends ToMethod> {
 
                     toRunnable(vuMeth, allVuArgs).run();
                     vrAct.release();
+                    vuAct.release();
                 } catch (ExecutionException | InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -368,6 +390,7 @@ public final class Manager<K extends ToMethod> {
 
                 toRunnable(vuMeth, allVuArgs).run();
                 vrAct.release();
+                vuAct.release();
             } catch (Exception e) {
                 e.printStackTrace();
                 System.exit(1);
@@ -427,7 +450,7 @@ public final class Manager<K extends ToMethod> {
         Object[] params = getParams(method, args);
 
         //return the runnable
-        if(method.getParameterTypes().length == 0){//(method.getParameterCount() == 0) { //FIXME: API UPDATE WHEN?
+        if(method.getParameterTypes().length == 0){//(method.getParameterCount() == 0) { //FIXME: SDK UPDATE WHEN?
             return () -> {
                 try {
                     method.invoke(null);
@@ -480,21 +503,21 @@ public final class Manager<K extends ToMethod> {
                     && !parameters.containsKey(paramTypes[i])
                     //^It may be useful to include a null in the Treemap, so ensure it isn't present
                     && paramMkdSupplied[i]) { //check if it is marked Supplied, which would require it to be in the TreeMap
-                System.err.println("\n\nFATAL: Unable to supply arguments which are marked Supplied." +
+                throw new UnownedArgumentException("Unable to supply arguments which are marked Supplied." +
                         "\n\tIn position " + i + " (from 0) with type " + paramTypes[i].getCanonicalName() +
                         "\n\tIn call for method " + method.getName() +
                         "\n\tWith manual arguments " + Arrays.toString(args) +
                         "\n\tPerhaps you should use a shared Environment or BotConfig parameter?");
-                assert(false);
             }
         }
 
         //Check if anything has an annotation. If so, replace those by the args
         if(numAnno > 0) {
             if(numAnno != args.length) {
-                System.err.println("\n\nNumber of arguments provided in args must be equal to number " +
+                System.err.println("Number of arguments provided in args must be equal to number " +
                         "required for the Method, as determined by the number of Supplied annotations on arguments");
-                assert(false);
+                throw new TooFewArgumentsException("Number of arguments provided in args must be equal to number " +
+                        "required for the Method, as determined by the number of Supplied annotations on arguments");
             }
             int argNum = 0;
             for(int i=0; i<parameterCount; i++) {
@@ -535,7 +558,7 @@ public final class Manager<K extends ToMethod> {
         private final Comparator<T>             enumComparator  = Comparator.comparing(Objects::hashCode);
         private final TreeMap<T, Method>        functions       = new TreeMap<>(enumComparator);
         private final TreeMap<Class<?>, Object> parameters      = new TreeMap<>(classComparator);
-        private int numThreads = 10;
+        private int numThreads = 8;
 
         private Builder() {}
 
@@ -565,8 +588,10 @@ public final class Manager<K extends ToMethod> {
             catch (NoSuchMethodException e) {
                 System.err.println("ERROR: Cannot find method associated with key " + key +
                         "\n\tPerhaps you need to update your ToMethod instance?");
-                assert(false);
-//            System.exit(10);
+                throw new UnownedMethodException("Failed to find function with key " + key +
+                        "\n\tDid you ensure to update your Manager with the supplied functions?"+
+                        "\n\tDid you ensure to update the use sites of your functions?"+
+                        "\n\tDid you ensure to update the ToMethod function?");
             }
             return this;
         }
@@ -590,7 +615,8 @@ public final class Manager<K extends ToMethod> {
             if(parameters.containsKey(param.getClass())) {
                 System.err.println("\n\nERROR: Cannot put more than one automatic argument of the " +
                         "same Class into a Manager.");
-                assert(false);
+                throw new IllegalArgumentException("Cannot put more than one automatic argument of" +
+                        "the same Type in a Manager");
             }
             parameters.put(param.getClass(), param);
 
@@ -614,7 +640,8 @@ public final class Manager<K extends ToMethod> {
             if(parameters.containsKey(clazz)) {
                 System.err.println("\n\nERROR: Cannot put more than one automatic argument of the " +
                         "same Class into a Manager.");
-                assert(false);
+                throw new IllegalArgumentException("Cannot put more than one automatic argument of" +
+                        "the same Type in a Manager");
             }
             parameters.put(clazz, param);
 
@@ -636,7 +663,8 @@ public final class Manager<K extends ToMethod> {
             if(parameters.containsKey(param.getClass())) {
                 System.err.println("\n\nERROR: Cannot put more than one automatic argument of the " +
                         "same Class into a Manager.");
-                assert(false);
+                throw new IllegalArgumentException("Cannot put more than one automatic argument of" +
+                        "the same Type in a Manager");
             }
 
             Object immutableParam = ImmutableProxy.create(param);
@@ -671,8 +699,16 @@ public final class Manager<K extends ToMethod> {
             Method actionM = methods.get(action);
 
             assert actionM != null;
+            if(Objects.isNull(actionM)) {
+                throw new UnownedMethodException("Failed to find function with key " + action +
+                        "\n\tDid you ensure to update your Manager with the supplied functions?"+
+                        "\n\tDid you ensure to update the use sites of your functions?"+
+                        "\n\tDid you ensure to update the ToMethod function?");
+            }
             Concurrent actionAnno = actionM.getAnnotation(Concurrent.class);
             assert actionAnno != null;
+            if(Objects.isNull(actionAnno))
+                throw new AnnotationNotPresentException("Method defined by "+action+" must have a Behavior annotation");
 
             requirePermit = !actionAnno.allowAsync();
         }

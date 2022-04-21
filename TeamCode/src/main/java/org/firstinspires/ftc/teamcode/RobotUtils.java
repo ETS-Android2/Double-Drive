@@ -88,14 +88,14 @@ public class RobotUtils {
         }
     }
 
-    static void setMotors(DcMotor leftF, DcMotor leftB, DcMotor rightF, DcMotor rightB,
+    public static void setMotors(DcMotor leftF, DcMotor leftB, DcMotor rightF, DcMotor rightB,
                    double m1,     double m2,     double m3,      double m4) {
         leftF .setPower(m1);
         leftB .setPower(m2);
         rightF.setPower(m3);
         rightB.setPower(m4);
     }
-    static void stopMotors(DcMotor leftF,  DcMotor leftB,
+    public static void stopMotors(DcMotor leftF,  DcMotor leftB,
                     DcMotor rightF, DcMotor rightB) {
         leftF .setPower(0);
         leftB .setPower(0);

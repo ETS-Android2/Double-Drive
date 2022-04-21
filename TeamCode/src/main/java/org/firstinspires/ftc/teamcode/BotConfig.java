@@ -82,6 +82,7 @@ public class BotConfig
         rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         abductor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        abductor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         winchMotor.setTargetPosition(0);
         winchMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
