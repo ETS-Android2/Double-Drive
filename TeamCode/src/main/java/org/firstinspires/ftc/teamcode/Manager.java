@@ -56,6 +56,7 @@ public final class Manager<K extends ToMethod> {
     private final TreeMap<K, Method>        methods         = new TreeMap<>(enumComparator); //Do not directly access this. Use `functions` instead
     private final TreeMap<K, Action>        functions       = new TreeMap<>(enumComparator);
     private final TreeMap<Class<?>, Object> parameters      = new TreeMap<>(classComparator);
+    private final TreeMap<String, Logic<? extends ToCallable<Boolean>>> conditionals = new TreeMap<>();
     private int numThreads;
     private ScheduledThreadPoolExecutor pool;
 
@@ -65,6 +66,8 @@ public final class Manager<K extends ToMethod> {
     public Manager(Builder<K> builder) {
         this.numThreads = builder.numThreads;
         this.methods.putAll(builder.functions);
+        this.parameters.putAll(builder.parameters);
+        this.conditionals.putAll(builder.conditionals);
 
         Set<K> funcsTemp = methods.keySet();
         Iterator iter = funcsTemp.iterator();
@@ -74,7 +77,6 @@ public final class Manager<K extends ToMethod> {
             functions.put(next, new Action(next));
         }
 
-        this.parameters.putAll(builder.parameters);
         pool = new ScheduledThreadPoolExecutor(builder.numThreads);
     }
 
@@ -406,7 +408,7 @@ public final class Manager<K extends ToMethod> {
      * @param <T> The Callable return type.
      * @return The Callable representing the method applied to the arguments.
      */
-    private <T> Callable<T> toCallable(Method method, Object... args) {
+     private <T> Callable<T> toCallable(Method method, Object... args) {
         Object[] params = getParams(method, args);
 
         //return the runnable
@@ -559,6 +561,7 @@ public final class Manager<K extends ToMethod> {
         private final Comparator<T>             enumComparator  = Comparator.comparing(Objects::hashCode);
         private final TreeMap<T, Method>        functions       = new TreeMap<>(enumComparator);
         private final TreeMap<Class<?>, Object> parameters      = new TreeMap<>(classComparator);
+        private final TreeMap<String, Logic<? extends ToCallable<Boolean>>> conditionals = new TreeMap<>();
         private int numThreads = 8;
 
         private Builder() {}
@@ -671,6 +674,21 @@ public final class Manager<K extends ToMethod> {
             Object immutableParam = ImmutableProxy.create(param);
             parameters.put(param.getClass(), immutableParam);
 
+            return this;
+        }
+
+        /**
+         * Add custom logic to your Manager. Logic is polymorphic in its type, but requires the type
+         * to implement a ToCallable that returns a Boolean. Logic alleviates the need for boilerplate
+         * conditional actions/keys, making your code cleaner and the logic more concise. Logic
+         * enables simpler bottom-up design of conditional expressions built upon basic primitives
+         * and combined to create larger, complex structures.
+         * @param name The name to hereby refer to this conditional as
+         * @param logic The Logic to add
+         * @return An updated Builder
+         */
+        public Builder<T> addConditional(String name, Logic<? extends ToCallable<Boolean>> logic) {
+            conditionals.put(name, logic);
             return this;
         }
 

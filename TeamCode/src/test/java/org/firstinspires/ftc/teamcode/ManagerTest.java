@@ -11,6 +11,8 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode.*;
 
 import static org.firstinspires.ftc.teamcode.TestClassEnum.*;
 import static org.firstinspires.ftc.teamcode.AltFunctionality.*;
+import static org.firstinspires.ftc.teamcode.AltFunctionality.Conditionals.*;
+import static org.firstinspires.ftc.teamcode.Logic.*;
 
 
 public class ManagerTest {
@@ -187,10 +189,39 @@ public class ManagerTest {
     }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     @Test
-    public void funcTestWithArgs() {
-//        Manager<ToMethod> withArgs = Manager.Builder.builder()
-//                .addFunc(RETURNTRUE_B)
-//                .addFunc()
-//                .build();
+    public void funcLogicCallableBool() {
+        Logic<Boolean> logic =
+                And(
+                        Or(
+                            Lit(true),
+                            Lit(false)
+                        ),
+                        Lit(true)
+                );
+        boolean result = false;
+        try {
+                result = toCallableBools(logic).call();
+        } catch(Exception e) { e.printStackTrace(); }
+
+        System.out.println(result);
+        Assert.assertTrue(result, "AST did not evaluate to True");
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    @Test
+    public void funcLogicCallable() {
+        Logic<Conditionals> logic =
+            And(
+                Or(
+                    Lit(RetTrueCond()),
+                    Lit(RetFalseCond())
+                ),
+                Lit(RetTrueCond())
+            );
+        boolean result = false;
+        try {
+            result = toCallable(logic).call();
+        } catch(Exception e) { e.printStackTrace(); }
+        System.out.println(result);
+        Assert.assertTrue(result, "AST did not evaluate to True");
     }
 }
