@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.actions;
 
+import static org.firstinspires.ftc.teamcode.Logic.Lit;
+
 import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -8,12 +10,14 @@ import org.firstinspires.ftc.teamcode.ConcE;
 import org.firstinspires.ftc.teamcode.Concurrent;
 import org.firstinspires.ftc.teamcode.LiftLevelI;
 import org.firstinspires.ftc.teamcode.RobotUtils;
+import org.firstinspires.ftc.teamcode.Logic;
 import org.firstinspires.ftc.teamcode.Supplied;
+import org.firstinspires.ftc.teamcode.ToCallable;
 import org.firstinspires.ftc.teamcode.ToMethod;
-import static org.firstinspires.ftc.teamcode.RobotUtils.*;
 
 import java.lang.reflect.Method;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 
 public enum GenericActions implements ToMethod {
     CONTROLLER_CHECK, PRINT_TO_TELEMETRY, DRIVE, SPIN_ABDUCTOR, TURBO;
@@ -117,6 +121,53 @@ public enum GenericActions implements ToMethod {
             case "idle" : return !controller.atRest();
             case "bump_not_held" : return !(controller.left_bumper || controller.right_bumper);
             default: return false;
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    public abstract static class GenActCond implements ToCallable<Boolean> {
+        public static class CheckController extends GenActCond implements ToCallable<Boolean> {
+            private Gamepad gamepad;
+            private String checkee;
+
+            public CheckController(Gamepad gamepad, String checkee) {
+                this.gamepad = gamepad;
+                this.checkee = checkee;
+            }
+
+            private CheckController() {}
+
+            @Override
+            public Callable<Boolean> toCallable() {
+                return () -> controllerCheck(gamepad, checkee);
+            }
+        }
+        public static CheckController CheckController(Gamepad gamepad, String checkee) {
+            return new CheckController(gamepad, checkee);
+        }
+        public static Logic<GenActCond> CheckControllerL(Gamepad gamepad, String checkee) {
+            return Lit(CheckController(gamepad, checkee));
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////
+        public static class Print extends GenActCond implements ToCallable<Boolean> {
+            String str;
+
+            public Print(String str) {
+                this.str = str;
+            }
+
+            private Print() {}
+
+            @Override
+            public Callable<Boolean> toCallable() {
+                return () -> {
+                    System.out.println("This printed!!!!!");
+                    return true;
+                };
+            }
+        }
+        public static Logic<GenActCond> PrintL(String str) {
+            return Lit(new Print(str));
         }
     }
 }

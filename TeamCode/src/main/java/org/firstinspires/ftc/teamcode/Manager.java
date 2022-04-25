@@ -5,31 +5,24 @@ import org.firstinspires.ftc.teamcode.exceptions.AnnotationNotPresentException;
 import org.firstinspires.ftc.teamcode.exceptions.TooFewArgumentsException;
 import org.firstinspires.ftc.teamcode.exceptions.UnownedArgumentException;
 import org.firstinspires.ftc.teamcode.exceptions.UnownedMethodException;
-import org.immutables.value.Value;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import de.cronn.reflection.util.immutable.ImmutableProxy;
@@ -41,6 +34,7 @@ import de.cronn.reflection.util.immutable.ImmutableProxy;
 //TODO: Conditional run - need -many- variants
 //TODO: Scheduled run
 //TODO: all-to-one variant of execWith
+//TODO: String variant of execIf
 
 /**
  * Manager is the heart of your program. It holds the methods, parameters, and function used to
@@ -84,11 +78,6 @@ public final class Manager<K extends ToMethod> {
         pool = new ScheduledThreadPoolExecutor(8);
     }
 
-    /**
-     * {@code actionRun()} serves as a means to make the body of {@code execWith} and its ilk shorter.
-     * @param vrAct The action to run, passing the return value to vuAct
-     * @param vuAct The action to run using a parameter from vrAct
-     */
 
 
     /**
@@ -149,6 +138,11 @@ public final class Manager<K extends ToMethod> {
         return this;
     }
 
+    /**
+     * {@code actionRun()} serves as a means to make the body of {@code execWith} and its ilk shorter.
+     * @param vrAct The action to run, passing the return value to vuAct
+     * @param vuAct The action to run using a parameter from vrAct
+     */
     private void actionRun(Action vrAct, Action vuAct)  {
         actionRun(vrAct, new Object[0], vuAct, new Object[0]);
     }
@@ -331,6 +325,57 @@ public final class Manager<K extends ToMethod> {
         actionRunIf(act, boolFArgs, funcAct, new Object[0]);
         return this;
     }
+    //TODO: replace asserts in all execIfs with errors
+
+    /**
+     * A version of {@code execIf} that uses a {@code Logic} AST instead of a single function. Due to
+     * this, all parameters for values stored in AST Literals must be known statically. This is a Good
+     * Thing.
+     * @param logic A Logic AST
+     * @param vuFunc Value-using function
+     * @param vuFuncArgs the Value-using function's manually passed arguments. {@code true} is added
+     *                   to the end.
+     * @param <T> An Algebraic Data Type in which all Data Constructors (inner classes) implement
+     *           {@code ToCallable<Boolean>}. If you do not know what an Algebraic Data Type is,
+     *           see the examples. //TODO: make examples
+     * @return The manager
+     */
+    public <T extends ToCallable<Boolean>> Manager<K> execIf(Logic<T> logic, K vuFunc, Object[] vuFuncArgs) {
+        Action funcAct = functions.get(vuFunc);
+        assert funcAct != null;
+
+        Method vuMeth = funcAct.toMethod();
+
+        pool.execute(() -> {
+           try {
+               boolean logicRes = Logic.toCallable(logic).call();
+               if(!logicRes) {
+                   funcAct.release();
+                   return;
+               }
+
+               ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
+               allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
+               allVuArgsAL.add(true);
+               Object[] allVuArgs = allVuArgsAL.toArray();
+
+               toRunnable(vuMeth, allVuArgs).run();
+
+               funcAct.release();
+           } catch (ExecutionException | InterruptedException e) {
+               e.printStackTrace();
+           } catch (Exception e) {
+               e.printStackTrace();
+           }
+        });
+
+        return this;
+    }
+
+    public <T extends ToCallable<Boolean>> Manager<K> execIf(Logic<T> logic, K vuFunc) {
+        execIf(logic, vuFunc, new Object[0]);
+        return this;
+    }
 
     /**
      * See documentation for {@code actionRun()}. This function behaves identically, except it will
@@ -366,7 +411,7 @@ public final class Manager<K extends ToMethod> {
                     //collect all of the arguments together
                     ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
                     allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
-                    allVuArgsAL.add(vrRetVal);
+                    allVuArgsAL.add(vrRetVal); //this is always `true`
                     Object[] allVuArgs = allVuArgsAL.toArray();
 
                     toRunnable(vuMeth, allVuArgs).run();
@@ -402,13 +447,14 @@ public final class Manager<K extends ToMethod> {
     }
 
     /**
-     * A Callable variant of {@code toRunnable()}. Follows the same semantics.
+     * A Callable variant of {@code toRunnable()}. Follows the same semantics. Not to be confused with
+     * interface {@code ToCallable}.
      * @param method The method passed. Must have a Concurrency annotation.
      * @param args Manually passed arguments denoted by a lack of a Supplied annotation.
      * @param <T> The Callable return type.
      * @return The Callable representing the method applied to the arguments.
      */
-     private <T> Callable<T> toCallable(Method method, Object... args) {
+    private <T> Callable<T> toCallable(Method method, Object... args) {
         Object[] params = getParams(method, args);
 
         //return the runnable
@@ -757,7 +803,9 @@ public final class Manager<K extends ToMethod> {
          * Allow this method to be fetched again
          */
         public void release() {
-            available.release();
+            if(requirePermit) {
+                available.release();
+            }
         }
 
         public Future<Object> toFuture() {
@@ -769,8 +817,5 @@ public final class Manager<K extends ToMethod> {
             return pool.submit( () -> toCallable(actionM, args).call());
         }
 
-        synchronized public boolean isRequirePermit() {
-            return requirePermit;
-        }
     }
 }

@@ -31,9 +31,9 @@ public @interface Concurrent {
      *        .exec(b)
      *        .await();
      * </pre>
-     * In this snippet, bar and foobar would be executed, but {@code a} and {@code b} will not.
-     * This is due to the implementation using semaphores and blocking. The only other way I see this
-     * being possible is via some form of queuing in some synchronized array which can be flushed,
+     * In this snippet, {@code bar} and {@code foobar} would be executed, but {@code a} and {@code b}
+     * will not. This is due to the implementation using semaphores and blocking. The only other way
+     * I see this being possible is via some form of queuing in some synchronized array which can be flushed,
      * but that complicates the user API.
      */
     boolean allowAsync() default true;

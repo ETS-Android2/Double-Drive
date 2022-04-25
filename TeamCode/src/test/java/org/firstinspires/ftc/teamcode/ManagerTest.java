@@ -1,17 +1,12 @@
 package org.firstinspires.ftc.teamcode;
 
-import static org.firstinspires.ftc.teamcode.Manager.Builder;
-
-import com.qualcomm.robotcore.hardware.HardwareMap;
-
 import org.junit.Test;
 import org.testng.Assert;
-import de.cronn.reflection.util.immutable.ImmutableProxy;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode.*;
 
 import static org.firstinspires.ftc.teamcode.TestClassEnum.*;
 import static org.firstinspires.ftc.teamcode.AltFunctionality.*;
 import static org.firstinspires.ftc.teamcode.AltFunctionality.Conditionals.*;
+import static org.firstinspires.ftc.teamcode.actions.GenericActions.GenActCond.*;
 import static org.firstinspires.ftc.teamcode.Logic.*;
 
 
@@ -223,5 +218,16 @@ public class ManagerTest {
         } catch(Exception e) { e.printStackTrace(); }
         System.out.println(result);
         Assert.assertTrue(result, "AST did not evaluate to True");
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    @Test
+    public void funcLogicManager() {
+
+        Manager<ToMethod> manager = Manager.Builder.builder()
+                .addFunc(MANUALPRINT)
+                .build();
+
+        manager .execIf(PrintL("This printed!!!!"), MANUALPRINT)
+                .await();
     }
 }

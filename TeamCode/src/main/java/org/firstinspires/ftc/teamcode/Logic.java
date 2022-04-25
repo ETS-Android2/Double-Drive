@@ -7,7 +7,7 @@ import java.util.concurrent.Callable;
 /**
  * This is an AST for combining actions that use boolean values. It may feel clunky, but it prevents
  * boilerplate declarations combining multiple checking functions. While this class is polymorphic
- * {@code ∀ a}, {@code <T extends ToCallable>} is likely what you will slot here.
+ * {@code ∀ a}, {@code <T extends ToCallable<Boolean>>} is likely what you will slot here.
  * //TODO: examples
  * @param <A> The value at the leaves of the AST
  * @implNote If you are reading the source code, it may be more beneficial to read the Haskell
@@ -124,7 +124,8 @@ public abstract class Logic<A> {
      * @param op A Logic AST
      * @return A {@code Callable} computing the AST
      */
-    static Callable<Boolean> toCallableBools(Logic<Boolean> op) {
+    //TODO: make this package-private
+    public static Callable<Boolean> toCallableBools(Logic<Boolean> op) {
         return op.accept(
                 new Visitor<Boolean, Callable<Boolean>>() {
                     @Override
@@ -172,7 +173,8 @@ public abstract class Logic<A> {
      * @param <T> {@code T ~ a} in the type of {@code ToCallable a => Logic a -> Callable Bool}
      * @return A {@code Callable} computing the AST
      */
-    static <T extends ToCallable<Boolean>> Callable<Boolean> toCallable(@NonNull Logic<T> op) {
+    //TODO: make this package-private
+    public static <T extends ToCallable<Boolean>> Callable<Boolean> toCallable(@NonNull Logic<T> op) {
         return op.accept(
                 new Visitor<T, Callable<Boolean>>() {
                     @Override
@@ -220,7 +222,7 @@ public abstract class Logic<A> {
     }
 
 
-    /*Haskell implementation of
+    /*Haskell implementation of Logic
     data Logic a = And (Logic a) (Logic a)
                  | Or  (Logic a) (Logic a)
                  | Not (Logic a)
