@@ -22,6 +22,7 @@ public class ManagerTeleOp extends LinearOpMode {
             .addFunc(TURBO)
             .addFunc(MANAGE_AUTO_LIFT_BEHAVIOR)
             .addParameterUnsafe(robot)
+            .setThreads(10)
             .build();
 
     //FIXME: errors are not thrown properly, NullPointerExceptions are thrown instead
@@ -33,15 +34,16 @@ public class ManagerTeleOp extends LinearOpMode {
 
         waitForStart();
         while(opModeIsActive()) {
-//            telemetry.addData("gamepad1 a ", gamepad1.a); //this is debug info
-//            telemetry.addData("gamepad1 b ", gamepad1.b);
-//            telemetry.addData("ticker ", ticker);
-//            telemetry.update();
-//            ticker++;
+            telemetry.addData("gamepad1 a ", gamepad1.a); //this is debug info
+            telemetry.addData("gamepad1 b ", gamepad1.b);
+            telemetry.addData("ticker ", ticker);
+            telemetry.addData("active threads: ", Thread.activeCount());
+            telemetry.update();
+            ticker++;
 
             //TODO: Add scheduled execution, then implement auto lift and auto return
             manager .exec(DRIVE, gamepad1)
-                    .exec(MANAGE_AUTO_LIFT_BEHAVIOR)
+//                    .execWith(MANAGE_AUTO_LIFT_BEHAVIOR)
                     //LIFT & BASKET
 //                    .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "a"), RAISELIFT)
 //                    .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "b"), LOWERLIFT)
@@ -60,8 +62,9 @@ public class ManagerTeleOp extends LinearOpMode {
 //                    .execIf(CONTROLLER_CHECK, mkArr(gamepad1, "bump_not_held"), SPIN_ABDUCTOR, mkArr("halt"))
                     .execIf(CheckControllerL(gamepad1, "lb"), SPIN_ABDUCTOR, mkArr("cw"))
                     .execIf(CheckControllerL(gamepad1, "rb"), SPIN_ABDUCTOR, mkArr("ccw"))
-                    .execIf(CheckControllerL(gamepad1, "bump_not_held"), SPIN_ABDUCTOR, mkArr("halt"))
-                    .await();
+                    .execIf(CheckControllerL(gamepad1, "bump_not_held"), SPIN_ABDUCTOR, mkArr("halt"));
+//                    .await();
+
         }
     }
 

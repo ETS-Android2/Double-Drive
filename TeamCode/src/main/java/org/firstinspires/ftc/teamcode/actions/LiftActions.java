@@ -1,8 +1,8 @@
 package org.firstinspires.ftc.teamcode.actions;
 
-import static java.lang.Thread.sleep;
 
 import org.firstinspires.ftc.teamcode.BotConfig;
+import org.firstinspires.ftc.teamcode.ConcE;
 import org.firstinspires.ftc.teamcode.Concurrent;
 import org.firstinspires.ftc.teamcode.LiftLevelI;
 import org.firstinspires.ftc.teamcode.Supplied;
@@ -31,21 +31,18 @@ public enum LiftActions implements ToMethod {
         return null;
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
-    @Concurrent
+    @Concurrent(behavior = ConcE.CONCURRENT)
+    //FIXME: implement scheduled delays via concurrency annotations so that this can run automatically
+    //       after Drop is run, splitting this into two functions
     public static void manageAutoLiftBehavior(@Supplied BotConfig robot) {
         LiftLevelI lift = LiftActions.getLiftLevel(robot);
         boolean isDropped  = robot.basket.getPosition() == basketDrop;
         boolean isDetected = GenericActions.checkCSensor(robot);
 
         if(lift instanceof Drop_3 && isDropped) {
-            try {
-                sleep(1500);
-                isDropped = robot.basket.getPosition() == basketDrop; //re-compute, it may have changed
-                if(!isDropped) return;
-                lowerLift(robot); //this will lower the lift AND reset the servo
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            boolean isDropped2 = robot.basket.getPosition() == basketDrop; //re-compute, it may have changed
+            if (!isDropped2) return;
+            lowerLift(robot); //this will lower the lift AND reset the servo
         }
         else if(lift instanceof Pickup && isDetected) {
             raiseLift(robot);

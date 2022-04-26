@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import org.firstinspires.ftc.teamcode.actions.LiftActions;
 import org.junit.Test;
 import org.testng.Assert;
 
@@ -110,11 +111,13 @@ public class ManagerTest {
                 .addFunc(AltFunctionality.GETLIFTLEVEL) //get lift level is blocking
                 .addFunc(AltFunctionality.MANUALPRINT)
                 .addFunc(AltFunctionality.GETTARGETPOS)
+                .addFunc(LiftActions.MANAGE_AUTO_LIFT_BEHAVIOR)
                 .addImmutableParameter(raiseLiftConfig, RobotConfig.class)
                 .build();
 
         funcRaiseLift
                 .execManyWith(GETLIFTLEVEL, RAISELIFT, MANUALPRINT) //prints "Pickup"
+                .exec(LiftActions.MANAGE_AUTO_LIFT_BEHAVIOR)
                 .execWith(GETLIFTLEVEL, MANUALPRINT) //prints "Carry"
                 .exec(MANUALPRINT, "blah1") //this should print before "Carry"
                 .execManyWith(GETLIFTLEVEL, RAISELIFT)

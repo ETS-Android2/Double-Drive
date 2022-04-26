@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -289,6 +290,7 @@ public final class Manager<K extends ToMethod> {
         switch (concStatus) {
             case CONCURRENT: {
                 pool.execute(toRunnable(meth, args));
+//                new Thread(toRunnable(meth,args)).start();
                 act.release();
                 return this;
             }
