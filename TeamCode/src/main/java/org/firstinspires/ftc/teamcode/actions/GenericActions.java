@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.actions;
 import static org.firstinspires.ftc.teamcode.Logic.Lit;
 
 import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.BotConfig;
@@ -19,6 +20,9 @@ import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 
+import static org.firstinspires.ftc.teamcode.actions.LiftActions.*;
+
+//TODO: convert to an ADT instead of enum
 public enum GenericActions implements ToMethod {
     CONTROLLER_CHECK, PRINT_TO_TELEMETRY, DRIVE, SPIN_ABDUCTOR, TURBO;
 
@@ -33,6 +37,7 @@ public enum GenericActions implements ToMethod {
        }
        return null;
     }
+
 
     @Concurrent
     public static void spinAbductor(@Supplied BotConfig robot, String direction) {
@@ -124,7 +129,25 @@ public enum GenericActions implements ToMethod {
         }
     }
 
+    public static boolean checkCSensor(BotConfig robot) {
+        NormalizedRGBA colors = robot.cSensor.getNormalizedColors();
+        return colors.red > 0.004 && colors.green > 0.005;
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Generic Action Conditional. The convention for Conditionals and ADTs in this library is
+     * the following:
+     * <ul>
+     *     <li>For Data Constructors (DCs) that hold data, parameter-less constructors ought to be
+     *     private. </li>
+     *     <li>For all DC Foo, there ought be a function Foo([data]) as shorthand for the constructor. </li>
+     *     <li>For all DC Foo, there ought be a function FooL([data]) as shorthand for Logic construction.</li>
+     *     <li>The {@code toCallable()} ought be morally pure. Any side effects performed should not break
+     *     referential transparency if possible. e.g. {@code Print(String str)} is morally pure.</li>
+     * </ul>
+     */
     public abstract static class GenActCond implements ToCallable<Boolean> {
         public static class CheckController extends GenActCond implements ToCallable<Boolean> {
             private Gamepad gamepad;
@@ -149,6 +172,7 @@ public enum GenericActions implements ToMethod {
             return Lit(CheckController(gamepad, checkee));
         }
         ////////////////////////////////////////////////////////////////////////////////////////////
+        //Print is a debug GenAct, so it does not follow convention
         public static class Print extends GenActCond implements ToCallable<Boolean> {
             String str;
 

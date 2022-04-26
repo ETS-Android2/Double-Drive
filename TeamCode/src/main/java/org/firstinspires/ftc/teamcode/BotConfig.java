@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.hardware.bosch.BNO055IMU;
+import com.qualcomm.hardware.rev.RevColorSensorV3;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -30,9 +31,7 @@ public class BotConfig
     public Servo      basket     = null;
     public BNO055IMU imu = null;
     public Orientation angles = null;
-//    public WebcamName camera     = null;
-//    public int cameraMonitor;
-//    public String cameraName = null;
+    public RevColorSensorV3 cSensor = null;
 
 
     /* local OpMode members. */
@@ -92,6 +91,9 @@ public class BotConfig
         abductor = hwMap.get(DcMotor.class, "abductor");
         basket   = hwMap.get(Servo.class, "basket");
 
+        cSensor = hwMap.get(RevColorSensorV3.class, "cSensor");
+        cSensor.initialize();
+        cSensor.enableLed(true);
         // Define and initialize camera.
         //set abductor defaults
         abductor.setPower(0); //0.5 is stop for a continuous rotation servo

@@ -11,8 +11,9 @@ import org.firstinspires.ftc.teamcode.ToMethod;
 import java.lang.reflect.Method;
 
 public enum LiftActions implements ToMethod {
-    RAISELIFT, LOWERLIFT, GETLIFTLEVEL, DROP;
+    RAISELIFT, LOWERLIFT, GETLIFTLEVEL, DROP, MANAGE_AUTO_LIFT_BEHAVIOR;
 
+    final static private double basketDrop = 0;
     final static private int pickup = 0;
     final static private int carry  = 400;
     final static private int drop_3 = 1400;
@@ -25,18 +26,39 @@ public enum LiftActions implements ToMethod {
             case RAISELIFT: return this.getClass().getDeclaredMethod("raiseLift", BotConfig.class);
             case GETLIFTLEVEL: return this.getClass().getDeclaredMethod("getLiftLevel", BotConfig.class);
             case DROP: return this.getClass().getDeclaredMethod("drop", BotConfig.class);
+            case MANAGE_AUTO_LIFT_BEHAVIOR: return this.getClass().getDeclaredMethod("manageAutoLiftBehavior", BotConfig.class);
         }
         return null;
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
     @Concurrent
-    public static void drop(@Supplied BotConfig robot) {
-        LiftLevelI lift = getLiftLevel(robot);
-        if(lift instanceof Drop_3) {
-            robot.basket.setPosition(0);
+    public static void manageAutoLiftBehavior(@Supplied BotConfig robot) {
+        LiftLevelI lift = LiftActions.getLiftLevel(robot);
+        boolean isDropped  = robot.basket.getPosition() == basketDrop;
+        boolean isDetected = GenericActions.checkCSensor(robot);
+
+        if(lift instanceof Drop_3 && isDropped) {
+            try {
+                sleep(1500);
+                isDropped = robot.basket.getPosition() == basketDrop; //re-compute, it may have changed
+                if(!isDropped) return;
+                lowerLift(robot); //this will lower the lift AND reset the servo
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        else if(lift instanceof Pickup && isDetected) {
+            raiseLift(robot);
         }
     }
 
+    @Concurrent
+    public static void drop(@Supplied BotConfig robot) {
+        LiftLevelI lift = getLiftLevel(robot);
+        if(lift instanceof Drop_3) {
+            robot.basket.setPosition(basketDrop);
+        }
+    }
 
     @Concurrent//(allowAsync = false)
     public static void raiseLift(@Supplied BotConfig config) {

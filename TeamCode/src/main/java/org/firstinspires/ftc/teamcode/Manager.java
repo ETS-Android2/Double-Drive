@@ -31,16 +31,22 @@ import de.cronn.reflection.util.immutable.ImmutableProxy;
 //TODO: Enable the ability to add parameters via a String, with the @Supplied using a String to
 //      delineate the normal supplied annotation (is this beneficial?)
 
-//TODO: Conditional run - need -many- variants
-//TODO: Scheduled run
+//TODO: execManyIf()
+//TODO: Scheduled run with logic integration
 //TODO: all-to-one variant of execWith
 //TODO: String variant of execIf
+//TODO: optional passing of telemetry for better error messages
+
+//Idea for more efficient scheduled run: Add automatic actions to a TreeMap associated by strings (for naming)
+//so that when a task that has the annotation (which holds the string with the name) runs, that auto task
+//is ran. Is this necessary?
 
 /**
  * Manager is the heart of your program. It holds the methods, parameters, and function used to
  * execute your code. Using Manager.Builder, it is trivial to construct a new Manager. Please keep
  * in mind that value-returning functions will not have values stored when called. In order to use
- * the value from a value-returning function, use {@code execWith()}
+ * the value from a value-returning function, use {@code execWith()}. For conditional execution,
+ * use {@code execIf()}.
  * @param <K> The Key representing the functions, which must be directly translatable to Methods.
  *            Ex: RobotFuncs.RAISE_LIFT, which is an Enum that translates to a Method used to raise a lift.
  */
@@ -50,7 +56,7 @@ public final class Manager<K extends ToMethod> {
     private final TreeMap<K, Method>        methods         = new TreeMap<>(enumComparator); //Do not directly access this. Use `functions` instead
     private final TreeMap<K, Action>        functions       = new TreeMap<>(enumComparator);
     private final TreeMap<Class<?>, Object> parameters      = new TreeMap<>(classComparator);
-    private final TreeMap<String, Logic<? extends ToCallable<Boolean>>> conditionals = new TreeMap<>();
+    private final TreeMap<String, Logic<? extends ToCallable<Boolean>>> conditionals = new TreeMap<>(); //TODO finish
     private int numThreads;
     private ScheduledThreadPoolExecutor pool;
 
