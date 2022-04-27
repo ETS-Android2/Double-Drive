@@ -172,6 +172,27 @@ public enum GenericActions implements ToMethod {
             return Lit(CheckController(gamepad, checkee));
         }
         ////////////////////////////////////////////////////////////////////////////////////////////
+        public static class CheckItemDetected extends GenActCond implements ToCallable<Boolean> {
+            private BotConfig robot;
+
+            private CheckItemDetected() {}
+
+            public CheckItemDetected(BotConfig robot) {
+                this.robot = robot;
+            }
+
+            @Override
+            public Callable<Boolean> toCallable() {
+                return () -> checkCSensor(robot);
+            }
+        }
+        public static CheckItemDetected CheckItemDetected(BotConfig robot) {
+            return new CheckItemDetected(robot);
+        }
+        public static Logic<GenActCond> CheckItemDetectedL(BotConfig robot) {
+            return Lit(CheckItemDetected(robot));
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////
         //Print is a debug GenAct, so it does not follow convention
         public static class Print extends GenActCond implements ToCallable<Boolean> {
             String str;

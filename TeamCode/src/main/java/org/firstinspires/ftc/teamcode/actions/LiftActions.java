@@ -5,13 +5,16 @@ import org.firstinspires.ftc.teamcode.BotConfig;
 import org.firstinspires.ftc.teamcode.ConcE;
 import org.firstinspires.ftc.teamcode.Concurrent;
 import org.firstinspires.ftc.teamcode.LiftLevelI;
+import org.firstinspires.ftc.teamcode.Manager;
+import org.firstinspires.ftc.teamcode.Scheduler;
 import org.firstinspires.ftc.teamcode.Supplied;
 import org.firstinspires.ftc.teamcode.ToMethod;
 
 import java.lang.reflect.Method;
+import java.util.concurrent.TimeUnit;
 
 public enum LiftActions implements ToMethod {
-    RAISELIFT, LOWERLIFT, GETLIFTLEVEL, DROP, MANAGE_AUTO_LIFT_BEHAVIOR;
+    RAISELIFT, LOWERLIFT, GETLIFTLEVEL, DROP;
 
     final static private double basketDrop = 0;
     final static private int pickup = 0;
@@ -26,7 +29,7 @@ public enum LiftActions implements ToMethod {
             case RAISELIFT: return this.getClass().getDeclaredMethod("raiseLift", BotConfig.class);
             case GETLIFTLEVEL: return this.getClass().getDeclaredMethod("getLiftLevel", BotConfig.class);
             case DROP: return this.getClass().getDeclaredMethod("drop", BotConfig.class);
-            case MANAGE_AUTO_LIFT_BEHAVIOR: return this.getClass().getDeclaredMethod("manageAutoLiftBehavior", BotConfig.class);
+//            case MANAGE_AUTO_LIFT_BEHAVIOR: return this.getClass().getDeclaredMethod("manageAutoLiftBehavior", BotConfig.class);
         }
         return null;
     }
@@ -37,22 +40,22 @@ public enum LiftActions implements ToMethod {
     )
     //FIXME: implement scheduled delays via concurrency annotations so that this can run automatically
     //       after Drop is run, splitting this into two functions
-    public static void manageAutoLiftBehavior(@Supplied BotConfig robot) {
+    public static void manageAutoLiftReturn(@Supplied BotConfig robot) {
         LiftLevelI lift = LiftActions.getLiftLevel(robot);
         boolean isDropped  = robot.basket.getPosition() == basketDrop;
-        boolean isDetected = GenericActions.checkCSensor(robot);
 
         if(lift instanceof Drop_3 && isDropped) {
-            boolean isDropped2 = robot.basket.getPosition() == basketDrop; //re-compute, it may have changed
-            if (!isDropped2) return;
             lowerLift(robot); //this will lower the lift AND reset the servo
-        }
-        else if(lift instanceof Pickup && isDetected) {
-            raiseLift(robot);
         }
     }
 
     @Concurrent
+    @Scheduler(
+        action = LiftADT.Manage_Auto_Lift_Return.class,
+        runAfter = 2500,
+        unit = TimeUnit.MILLISECONDS,
+        args = {}
+    )
     public static void drop(@Supplied BotConfig robot) {
         LiftLevelI lift = getLiftLevel(robot);
         if(lift instanceof Drop_3) {
@@ -172,6 +175,24 @@ public enum LiftActions implements ToMethod {
 
         public String toString() {
             return "Drop 3";
+        }
+    }
+
+    public static abstract class LiftADT implements ToMethod {
+        public static class Manage_Auto_Lift_Return extends LiftADT implements ToMethod {
+            static final Manage_Auto_Lift_Return self = new Manage_Auto_Lift_Return();
+
+            static Manage_Auto_Lift_Return getADT() {
+                return self;
+            }
+
+            @Override
+            public Method toMethod() throws NoSuchMethodException {
+                return LiftActions.class.getDeclaredMethod("manageAutoLiftReturn", BotConfig.class);
+            }
+        }
+        public static Manage_Auto_Lift_Return Manage_Auto_Lift_Return() {
+            return Manage_Auto_Lift_Return.getADT();
         }
     }
 }
