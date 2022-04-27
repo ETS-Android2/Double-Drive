@@ -7,8 +7,10 @@ import org.testng.Assert;
 import static org.firstinspires.ftc.teamcode.TestClassEnum.*;
 import static org.firstinspires.ftc.teamcode.AltFunctionality.*;
 import static org.firstinspires.ftc.teamcode.AltFunctionality.Conditionals.*;
+import static org.firstinspires.ftc.teamcode.AltFunctionality.ADT.*;
 import static org.firstinspires.ftc.teamcode.actions.GenericActions.GenActCond.*;
 import static org.firstinspires.ftc.teamcode.Logic.*;
+import static java.lang.Thread.sleep;
 
 
 public class ManagerTest {
@@ -23,7 +25,8 @@ public class ManagerTest {
 
         //Simple example displaying basic functionality
 //        int i = 1;
-                funcDelayManager.exec(TestClassEnum.PRINTDELAY) //Notice the parameter is automatically passed
+        funcDelayManager
+                .exec(TestClassEnum.PRINTDELAY) //Notice the parameter is automatically passed
                 //^ This call has a 5000ms sleep. Because of the concurrency annotation, the below
                 //  call will still proceed and will be completed first.
                 .exec(AltFunctionality.PRINTNODELAY) //This is not delayed
@@ -111,13 +114,11 @@ public class ManagerTest {
                 .addFunc(AltFunctionality.GETLIFTLEVEL) //get lift level is blocking
                 .addFunc(AltFunctionality.MANUALPRINT)
                 .addFunc(AltFunctionality.GETTARGETPOS)
-                .addFunc(LiftActions.MANAGE_AUTO_LIFT_BEHAVIOR)
                 .addImmutableParameter(raiseLiftConfig, RobotConfig.class)
                 .build();
 
         funcRaiseLift
                 .execManyWith(GETLIFTLEVEL, RAISELIFT, MANUALPRINT) //prints "Pickup"
-                .exec(LiftActions.MANAGE_AUTO_LIFT_BEHAVIOR)
                 .execWith(GETLIFTLEVEL, MANUALPRINT) //prints "Carry"
                 .exec(MANUALPRINT, "blah1") //this should print before "Carry"
                 .execManyWith(GETLIFTLEVEL, RAISELIFT)
@@ -232,5 +233,39 @@ public class ManagerTest {
 
         manager .execIf(PrintL("This printed!!!!"), MANUALPRINT)
                 .await();
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    @Test
+    public void funcIgnoreAsync() {
+        Manager<ToMethod> manager = Manager.Builder.builder()
+                .addFunc(IGNORED_NO_ASYNC_PRINT_DELAY)
+                .addFunc(MANUALPRINT)
+                .build();
+        for(int i=0; i<100; i++) {
+            manager.exec(IGNORED_NO_ASYNC_PRINT_DELAY, "Printing: "+i+"\nDelaying 2s...")
+                   .exec(MANUALPRINT, "This is a manual print. Currently i = "+i);
+        }
+        manager.await();
+        //About the result: this should only print once, first with the "printing" then the "delay."
+        //The purpose of this is so when something that delays (not recommended) or takes a while is
+        //run concurrently, can't be run concurrently with itself, and mustn't block the manager, it
+        //can be ignored and not flood the thread pool.
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+    @Test
+    public void funcSchedulerTest() {
+        Manager<ToMethod> manager = Manager.Builder.builder()
+                .addFunc(ManualPrint())
+                .addFunc(EMPTY_SCHEDULER)
+                .addStrParameter("man_print_schedule_str", "Got value from strParameter!")
+                .build();
+
+        manager .exec(EMPTY_SCHEDULER)
+                .await();
+//        try {
+//            sleep(5000);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
     }
 }

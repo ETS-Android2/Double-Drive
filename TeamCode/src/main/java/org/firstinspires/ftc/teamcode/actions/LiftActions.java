@@ -31,7 +31,10 @@ public enum LiftActions implements ToMethod {
         return null;
     }
     ////////////////////////////////////////////////////////////////////////////////////////////////
-    @Concurrent(behavior = ConcE.CONCURRENT)
+    @Concurrent(
+            allowAsync = false,
+            ignoreOnAsync = true
+    )
     //FIXME: implement scheduled delays via concurrency annotations so that this can run automatically
     //       after Drop is run, splitting this into two functions
     public static void manageAutoLiftBehavior(@Supplied BotConfig robot) {

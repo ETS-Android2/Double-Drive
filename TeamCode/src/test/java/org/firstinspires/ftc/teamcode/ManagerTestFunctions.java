@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode;
 
 import static java.lang.Thread.sleep;
 
+import java.util.concurrent.TimeUnit;
+
 public class ManagerTestFunctions {
 
     @Concurrent
@@ -20,9 +22,14 @@ public class ManagerTestFunctions {
         System.out.println("Delay finished: " + i);
     }
 
-    @Concurrent
+    @Concurrent (allowAsync = false)
     static <T> void testPrintManual(T i) {
         System.out.println("Received value: " + i);
+    }
+
+    @Concurrent
+    static void strPrintManual(String str) {
+        System.out.println(str);
     }
 
     @Concurrent
@@ -103,9 +110,31 @@ public class ManagerTestFunctions {
         int targetPos = config.winchMotor().getTargetPosition();
         return Levels.toLiftLevel(targetPos);
     }
-//    @Concurrent(allowAsync = false)
     @Concurrent(allowAsync = false)
     static int getTargetPos(@Supplied RobotConfig config) {
         return config.winchMotor().getTargetPosition();
+    }
+
+    @Concurrent(
+            allowAsync = false,
+            ignoreOnAsync = true)
+    static void ignoreNoAsyncPrintDelay(String str) {
+        System.out.println(str);
+        try {
+            sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Concurrent
+    @Scheduler(
+            action = AltFunctionality.ADT.ManualPrint.class,
+            args = {"man_print_schedule_str"},
+            runAfter = 0L,
+            unit = TimeUnit.SECONDS
+    )
+    static void emptyScheduler() {
+
     }
 }

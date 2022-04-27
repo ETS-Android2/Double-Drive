@@ -24,7 +24,7 @@ public @interface Concurrent {
      * to continue until the next blocking call. For example, assume function {@code F} blocks forever.
      * <pre>
      * manager.execWith(F, foo)
-     *        .exec(bar)
+     *        .exec(bar)<br>
      *        .exec(foobar)
      *        .execWith(F, func)
      *        .exec(a)
@@ -37,4 +37,11 @@ public @interface Concurrent {
      * but that complicates the user API.
      */
     boolean allowAsync() default true;
+
+    /**
+     * Requires that {@code allowAsync() == false}. When this is called, instead of blocking the manager
+     * this task will be dropped
+     * @return Whether or not the method should be ignored to avoid flooding the thread pool.
+     */
+    boolean ignoreOnAsync() default false;
 }

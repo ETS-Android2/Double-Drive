@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
@@ -58,8 +59,11 @@ public final class Manager<K extends ToMethod> {
     private final TreeMap<K, Action>        functions       = new TreeMap<>(enumComparator);
     private final TreeMap<Class<?>, Object> parameters      = new TreeMap<>(classComparator);
     private final TreeMap<String, Logic<? extends ToCallable<Boolean>>> conditionals = new TreeMap<>(); //TODO finish
+    private final TreeMap<String, Object> strParameters = new TreeMap<>();
     private int numThreads;
-    private ScheduledThreadPoolExecutor pool;
+//    private ScheduledThreadPoolExecutor pool;
+    private ForkJoinPool pool;
+    private final ScheduledThreadPoolExecutor delayPool = new ScheduledThreadPoolExecutor(4);
 
     //the queue represents pending actions. actions pend when they are not allowed to work with itself,
     //so it is put in this queue. to flush the queue, use await() or flushQueue() TODO: flushQueue()
@@ -69,6 +73,7 @@ public final class Manager<K extends ToMethod> {
         this.methods.putAll(builder.functions);
         this.parameters.putAll(builder.parameters);
         this.conditionals.putAll(builder.conditionals);
+        this.strParameters.putAll(builder.strParameters);
 
         Set<K> funcsTemp = methods.keySet();
         Iterator iter = funcsTemp.iterator();
@@ -78,11 +83,12 @@ public final class Manager<K extends ToMethod> {
             functions.put(next, new Action(next));
         }
 
-        pool = new ScheduledThreadPoolExecutor(builder.numThreads);
+        pool = new ForkJoinPool(builder.numThreads);
     }
 
     private Manager() {
-        pool = new ScheduledThreadPoolExecutor(8);
+//        pool = new ScheduledThreadPoolExecutor(8);
+        pool = new ForkJoinPool(12);
     }
 
 
@@ -101,6 +107,7 @@ public final class Manager<K extends ToMethod> {
     public Manager<K> execWith(K vrFunc, K vuFunc) {
         Action vrAct = functions.get(vrFunc);
         Action vuAct = functions.get(vuFunc);
+
 //        assert vrAct != null;
 //        assert vuAct != null;
 
@@ -155,8 +162,10 @@ public final class Manager<K extends ToMethod> {
     }
 
     private void actionRun(Action vrAct, Object[] vrFuncArgs, Action vuAct, Object[] vuFuncArgs) {
+        if(vrAct.doIgnore()) {
+            return;
+        }
         Method vrMeth = vrAct.toMethod();
-        Method vuMeth = vuAct.toMethod();
 
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
         if(Objects.isNull(vrAnno)) {
@@ -170,6 +179,13 @@ public final class Manager<K extends ToMethod> {
             pool.execute(() -> { //Submits it to a queue
                 try {
                     Object vrRetVal = vrRetValF.get();
+
+                    if(vuAct.doIgnore()) {
+                        vuAct.release();
+                        return;
+                    }
+                    Method vuMeth = vuAct.toMethod(); //TODO: CHECK THIS
+
                     //collect all of the arguments together
                     ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
                     allVuArgsAL.addAll(Arrays.asList(vuFuncArgs));
@@ -186,6 +202,13 @@ public final class Manager<K extends ToMethod> {
         } else { //Blocks
             try {
                 Object vrRetVal = toCallable(vrMeth, vrFuncArgs).call();
+                vrAct.release(); //vrAct is done, release
+
+                if(vuAct.doIgnore()) {
+                    vuAct.release();
+                    return;
+                }
+                Method vuMeth = vuAct.toMethod(); //TODO: CHECK THIS
                 //collect all of the arguments together
                 ArrayList<Object> allVuArgsAL = new ArrayList<>(vuFuncArgs.length + 1);
                 allVuArgsAL.add(vrRetVal);
@@ -193,7 +216,6 @@ public final class Manager<K extends ToMethod> {
                 Object[] allVuArgs = allVuArgsAL.toArray();
 
                 toRunnable(vuMeth, allVuArgs).run();
-                vrAct.release();
                 vuAct.release();
             } catch (Exception e) {
                 e.printStackTrace();
@@ -213,13 +235,20 @@ public final class Manager<K extends ToMethod> {
                     "\n\tDid you ensure to update the use sites of your functions?"+
                     "\n\tDid you ensure to update the ToMethod function?");
 
+        if(vrAct.doIgnore()) {return this;}
         Method vrMeth = vrAct.toMethod();
+        Scheduler vrSchedule = vrMeth.getAnnotation(Scheduler.class);
 
         List<Method> vuMeths = Arrays.stream(vuFuncs).parallel()
                 .map(functions::get)
+                .filter(func -> !func.doIgnore()) //ignore functions that we cant call right now TODO: check
                 .map(Action::toMethod)
                 .collect(Collectors.toList()); //get the methods in parallel, sacrificing null-safety
 //        assert vrMeth != null;
+        List<Scheduler> vuSchedulers = new ArrayList<>();
+        for(Method meth : vuMeths) {
+            vuSchedulers.add(meth.getAnnotation(Scheduler.class));
+        }
 
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
         if(Objects.isNull(vrAnno))
@@ -231,11 +260,13 @@ public final class Manager<K extends ToMethod> {
             pool.execute(() -> {
                 try {
                     Object vrRetVal = vrRetValF.get();
+                    vrAct.release();
+                    manageSchedulerAnno(vrSchedule);
                     for (int i=0; i<vuMeths.size(); i++) {
                         toRunnable(vuMeths.get(i), vrRetVal).run();
                         functions.get(vuFuncs[i]).release();
+                        manageSchedulerAnno(vuSchedulers.get(i));
                     }
-                    vrAct.release();
                 } catch (ExecutionException | InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -243,12 +274,14 @@ public final class Manager<K extends ToMethod> {
         } else {
             try {
                 Object vrRetVal = toCallable(vrMeth).call();
-
+                vrAct.release();
+                pool.execute(() -> manageSchedulerAnno(vrSchedule));
                 for (int i=0; i<vuMeths.size(); i++) {
                     toRunnable(vuMeths.get(i), vrRetVal).run();
                     functions.get(vuFuncs[i]).release();
+                    int finalI = i;
+                    pool.execute(() -> manageSchedulerAnno(vuSchedulers.get(finalI)));
                 }
-                vrAct.release();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -266,6 +299,7 @@ public final class Manager<K extends ToMethod> {
         Action act = functions.get(key);
         assert act != null;
 
+        if(act.doIgnore()) {return this;}
         Method meth = act.toMethod();
 
         if (Objects.isNull(meth)) {
@@ -285,18 +319,22 @@ public final class Manager<K extends ToMethod> {
                     " must have a Behavior annotation.\n\n");
             throw new AnnotationNotPresentException("Method defined by "+key+" must have a Behavior annotation");
         }
+        Scheduler schedule = meth.getDeclaredAnnotation(Scheduler.class);
         ConcE concStatus = behavior.behavior();
 
         switch (concStatus) {
             case CONCURRENT: {
-                pool.execute(toRunnable(meth, args));
-//                new Thread(toRunnable(meth,args)).start();
-                act.release();
+                pool.execute(() -> {
+                    toRunnable(meth, args).run();
+                    act.release();
+                    manageSchedulerAnno(schedule);
+                });
                 return this;
             }
             case BLOCKING: {
                 toRunnable(meth, args).run();
                 act.release();
+                pool.execute( () -> manageSchedulerAnno(schedule));
                 return this;
             }
             default: return this;
@@ -338,7 +376,7 @@ public final class Manager<K extends ToMethod> {
     /**
      * A version of {@code execIf} that uses a {@code Logic} AST instead of a single function. Due to
      * this, all parameters for values stored in AST Literals must be known statically. This is a Good
-     * Thing.
+     * Thing. Always ran concurrently.
      * @param logic A Logic AST
      * @param vuFunc Value-using function
      * @param vuFuncArgs the Value-using function's manually passed arguments. {@code true} is added
@@ -349,16 +387,19 @@ public final class Manager<K extends ToMethod> {
      * @return The manager
      */
     public <T extends ToCallable<Boolean>> Manager<K> execIf(Logic<T> logic, K vuFunc, Object[] vuFuncArgs) {
-        Action funcAct = functions.get(vuFunc);
-        assert funcAct != null;
+        Action vuAct = functions.get(vuFunc);
+        assert vuAct != null;
 
-        Method vuMeth = funcAct.toMethod();
+        //since the logic shouldn't take long, just abort if we cant even run the result, saving computation time
+        if(vuAct.doIgnore()) {return this;}
+        Method vuMeth = vuAct.toMethod();
+        Scheduler schedule = vuMeth.getDeclaredAnnotation(Scheduler.class);
 
         pool.execute(() -> {
            try {
                boolean logicRes = Logic.toCallable(logic).call();
                if(!logicRes) {
-                   funcAct.release();
+                   vuAct.release();
                    return;
                }
 
@@ -368,8 +409,8 @@ public final class Manager<K extends ToMethod> {
                Object[] allVuArgs = allVuArgsAL.toArray();
 
                toRunnable(vuMeth, allVuArgs).run();
-
-               funcAct.release();
+               vuAct.release();
+               manageSchedulerAnno(schedule);
            } catch (ExecutionException | InterruptedException e) {
                e.printStackTrace();
            } catch (Exception e) {
@@ -390,8 +431,12 @@ public final class Manager<K extends ToMethod> {
      * abort if the action returns false. The action must return a boolean.
      */
     private void actionRunIf(Action vrAct, Object[] vrFuncArgs, Action vuAct, Object[] vuFuncArgs) {
+        if(vrAct.doIgnore()) {
+            return;
+        }
+
         Method vrMeth = vrAct.toMethod();
-        Method vuMeth = vuAct.toMethod();
+//        Method vuMeth = vuAct.toMethod(); //TODO: replace this with individual calls after computing vrMeth?
 
         if(!vrMeth.getReturnType().equals(boolean.class)) {
             System.out.println("Key " + vrAct + "in execIf must return boolean (must not be Boolean)");
@@ -399,6 +444,8 @@ public final class Manager<K extends ToMethod> {
         }
 
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
+        Scheduler vrSchedule = vrMeth.getAnnotation(Scheduler.class);
+
         if(Objects.isNull(vrAnno)) {
             System.err.println("Unable to find Concurrent annotation for method " +
                     vrMeth.getName());
@@ -410,6 +457,13 @@ public final class Manager<K extends ToMethod> {
             pool.execute(() -> { //Submits it to a queue
                 try {
                     Object vrRetVal = vrRetValF.get();
+
+                    if(vuAct.doIgnore()) {
+                        vrAct.release();
+                        return;
+                    }
+                    Method vuMeth = vuAct.toMethod(); //TODO: CHECK THIS VS ABOVE TODO
+                    Scheduler vuSchedule = vuMeth.getAnnotation(Scheduler.class);
 
                     if(vrRetVal.equals(false)) {
                         vrAct.release();
@@ -424,7 +478,9 @@ public final class Manager<K extends ToMethod> {
 
                     toRunnable(vuMeth, allVuArgs).run();
                     vrAct.release();
+                    manageSchedulerAnno(vrSchedule);
                     vuAct.release();
+                    manageSchedulerAnno(vuSchedule);
                 } catch (ExecutionException | InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -433,8 +489,16 @@ public final class Manager<K extends ToMethod> {
             try {
                 Object vrRetVal = toCallable(vrMeth, vrFuncArgs).call();
 
+                if(vuAct.doIgnore()) {
+                    vrAct.release();
+                    return;
+                }
+                Method vuMeth = vuAct.toMethod(); //TODO: DITTO
+                Scheduler vuSchedule = vuMeth.getAnnotation(Scheduler.class);
+
                 if(vrRetVal.equals(false)) {
                     vrAct.release();
+                    vuAct.release();
                     return;
                 }
 
@@ -446,7 +510,9 @@ public final class Manager<K extends ToMethod> {
 
                 toRunnable(vuMeth, allVuArgs).run();
                 vrAct.release();
+                pool.execute(() -> manageSchedulerAnno(vrSchedule));
                 vuAct.release();
+                pool.execute(() -> manageSchedulerAnno(vuSchedule));
             } catch (Exception e) {
                 e.printStackTrace();
                 System.exit(1);
@@ -520,7 +586,6 @@ public final class Manager<K extends ToMethod> {
 
         return () -> {
             try {
-//                System.out.println(Arrays.toString(paramTypes));
                 method.invoke(null, params);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 e.printStackTrace();
@@ -596,6 +661,8 @@ public final class Manager<K extends ToMethod> {
         try {
             pool.shutdown();
             pool.awaitTermination(10, TimeUnit.SECONDS);
+            delayPool.shutdown();
+            delayPool.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -603,9 +670,35 @@ public final class Manager<K extends ToMethod> {
         return this;
     }
 
+    private void manageSchedulerAnno(Scheduler schedule) {
+        if(Objects.isNull(schedule)) {
+            return;
+        }
+        Class<? extends ToMethod> actionC = schedule.action();
+        String[] strings = schedule.args();
+        long runAfter = schedule.runAfter();
+        TimeUnit unit = schedule.unit();
+
+//        Object[] args = Arrays.stream(strings)
+//                .map(strParameters::get)
+//                .toArray();
+        Object[] args = new Object[strings.length];
+        for(int i=0; i<strings.length; i++) {
+            args[i] = strParameters.get(strings[i]);
+        }
+
+
+        try {
+            Method actionMeth = (Method) actionC.getMethod("toMethod").invoke(actionC.newInstance());
+            Runnable actionRun = toRunnable(actionMeth, args);
+            delayPool.schedule(actionRun, runAfter, unit);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+            e.printStackTrace();
+        }
+    }
 
     private void restartPool() {
-        pool = new ScheduledThreadPoolExecutor(numThreads);
+        pool = new ForkJoinPool(numThreads);
     }
 
     //**********************************************************************************************
@@ -616,6 +709,7 @@ public final class Manager<K extends ToMethod> {
         private final TreeMap<T, Method>        functions       = new TreeMap<>(enumComparator);
         private final TreeMap<Class<?>, Object> parameters      = new TreeMap<>(classComparator);
         private final TreeMap<String, Logic<? extends ToCallable<Boolean>>> conditionals = new TreeMap<>();
+        private final TreeMap<String, Object> strParameters = new TreeMap<>();
         private int numThreads = 8;
 
         private Builder() {}
@@ -706,6 +800,11 @@ public final class Manager<K extends ToMethod> {
             return this;
         }
 
+        public Builder<T> addStrParameter(String name, Object param) {
+            strParameters.putIfAbsent(name, param);
+            return this;
+        }
+
         /**
          * Add an automatically passed parameter. Please read the implementation notes.
          * @param param The auto-parameter
@@ -760,14 +859,18 @@ public final class Manager<K extends ToMethod> {
      * and the action along with some utility methods.
      */
     private class Action implements ToMethod {
-        private final Semaphore available = new Semaphore(1, true);
+        private final Semaphore available; //= new Semaphore(1, true);
         private K action;
 
         private boolean requirePermit;
+        private boolean ignoreAsyncCall;
 
-        private Action() {}
+        private Action() {
+            available = new Semaphore(1, true);
+        }
 
         public Action(K action) {
+            available = new Semaphore(1, true);
             this.action = action;
             Method actionM = methods.get(action);
 
@@ -784,6 +887,7 @@ public final class Manager<K extends ToMethod> {
                 throw new AnnotationNotPresentException("Method defined by "+action+" must have a Behavior annotation");
 
             requirePermit = !actionAnno.allowAsync();
+            ignoreAsyncCall = actionAnno.ignoreOnAsync();
         }
 
         @Override
@@ -825,5 +929,8 @@ public final class Manager<K extends ToMethod> {
             return pool.submit( () -> toCallable(actionM, args).call());
         }
 
+        public boolean doIgnore() {
+            return available.availablePermits() == 0 && ignoreAsyncCall;
+        }
     }
 }

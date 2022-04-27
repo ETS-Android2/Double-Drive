@@ -7,7 +7,7 @@ import java.util.concurrent.Callable;
 public enum AltFunctionality implements ToMethod {
     PRINTNODELAY, MANUALPRINT, RAISELIFT, LOWERLIFT, GETLIFTLEVEL,
     GETTARGETPOS, RETURNTRUE_B, RETURNFALSE_B, RETURNFALSE_C, RETURNTRUE_C,
-    PRINT_TWO_STR;
+    IGNORED_NO_ASYNC_PRINT_DELAY, EMPTY_SCHEDULER;
 
     @Override
     public Method toMethod() throws NoSuchMethodException {
@@ -22,7 +22,8 @@ public enum AltFunctionality implements ToMethod {
             case RETURNTRUE_B:  return ManagerTestFunctions.class.getDeclaredMethod("returnTrueBlock");
             case RETURNFALSE_C: return ManagerTestFunctions.class.getDeclaredMethod("returnFalseConc");
             case RETURNTRUE_C:  return ManagerTestFunctions.class.getDeclaredMethod("returnTrueConc");
-//            case PRINT_TWO_STR: return ManagerTestFunctions.class.getDeclaredMethod("printTwoStr", String.class)
+            case IGNORED_NO_ASYNC_PRINT_DELAY: return ManagerTestFunctions.class.getDeclaredMethod("ignoreNoAsyncPrintDelay", String.class);
+            case EMPTY_SCHEDULER: return ManagerTestFunctions.class.getDeclaredMethod("emptyScheduler");
             default: return null;
         }
     }
@@ -69,5 +70,26 @@ public enum AltFunctionality implements ToMethod {
             return new NoCompileCond();
         }
         //////////////////////////////////////////////////////////
+    }
+
+    public abstract static class ADT implements ToMethod {
+        public static class ManualPrint extends ADT implements ToMethod {
+
+            private static final ManualPrint self = new ManualPrint();
+
+            public ManualPrint() {}
+
+            public static ManualPrint getADT() {
+                return self;
+            }
+
+            @Override
+            public Method toMethod() throws NoSuchMethodException {
+                return ManagerTestFunctions.class.getDeclaredMethod("strPrintManual", String.class);
+            }
+        }
+        public static ManualPrint ManualPrint() {
+            return ManualPrint.getADT();
+        }
     }
 }
