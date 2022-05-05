@@ -1,16 +1,16 @@
 package org.firstinspires.ftc.teamcode;
 
-import org.firstinspires.ftc.teamcode.actions.LiftActions;
 import org.junit.Test;
 import org.testng.Assert;
 
+import static org.firstinspires.ftc.teamcode.ManagerTestFunctions.ignoreNoAsyncPrintDelay;
 import static org.firstinspires.ftc.teamcode.TestClassEnum.*;
 import static org.firstinspires.ftc.teamcode.AltFunctionality.*;
 import static org.firstinspires.ftc.teamcode.AltFunctionality.Conditionals.*;
 import static org.firstinspires.ftc.teamcode.AltFunctionality.ADT.*;
 import static org.firstinspires.ftc.teamcode.actions.GenericActions.GenActCond.*;
 import static org.firstinspires.ftc.teamcode.Logic.*;
-import static java.lang.Thread.sleep;
+
 
 
 public class ManagerTest {
@@ -226,7 +226,6 @@ public class ManagerTest {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
     @Test
     public void funcLogicManager() {
-
         Manager<ToMethod> manager = Manager.Builder.builder()
                 .addFunc(MANUALPRINT)
                 .build();
@@ -241,9 +240,13 @@ public class ManagerTest {
                 .addFunc(IGNORED_NO_ASYNC_PRINT_DELAY)
                 .addFunc(MANUALPRINT)
                 .build();
+
         for(int i=0; i<100; i++) {
-            manager.exec(IGNORED_NO_ASYNC_PRINT_DELAY, "Printing: "+i+"\nDelaying 2s...")
-                   .exec(MANUALPRINT, "This is a manual print. Currently i = "+i);
+            manager.exec(IGNORED_NO_ASYNC_PRINT_DELAY, "Printing: "+i);
+//                   .exec(MANUALPRINT, "This is a manual print. Currently i = "+i);
+            if(i%100==0) {
+                manager.displayPoolStatistics();
+            }
         }
         manager.await();
         //About the result: this should only print once, first with the "printing" then the "delay."

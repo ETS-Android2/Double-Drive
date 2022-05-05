@@ -22,7 +22,7 @@ public class ManagerTestFunctions {
         System.out.println("Delay finished: " + i);
     }
 
-    @Concurrent (allowAsync = false)
+    @Concurrent
     static <T> void testPrintManual(T i) {
         System.out.println("Received value: " + i);
     }
@@ -121,7 +121,7 @@ public class ManagerTestFunctions {
     static void ignoreNoAsyncPrintDelay(String str) {
         System.out.println(str);
         try {
-            sleep(2000);
+            sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

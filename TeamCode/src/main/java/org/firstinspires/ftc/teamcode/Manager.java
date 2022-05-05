@@ -63,7 +63,7 @@ public final class Manager<K extends ToMethod> {
     private int numThreads;
 //    private ScheduledThreadPoolExecutor pool;
     private ForkJoinPool pool;
-    private final ScheduledThreadPoolExecutor delayPool = new ScheduledThreadPoolExecutor(4);
+    private ScheduledThreadPoolExecutor delayPool = new ScheduledThreadPoolExecutor(4);
 
     //the queue represents pending actions. actions pend when they are not allowed to work with itself,
     //so it is put in this queue. to flush the queue, use await() or flushQueue() TODO: flushQueue()
@@ -239,15 +239,14 @@ public final class Manager<K extends ToMethod> {
         Method vrMeth = vrAct.toMethod();
         Scheduler vrSchedule = vrMeth.getAnnotation(Scheduler.class);
 
-        List<Method> vuMeths = Arrays.stream(vuFuncs).parallel()
-                .map(functions::get)
-                .filter(func -> !func.doIgnore()) //ignore functions that we cant call right now TODO: check
-                .map(Action::toMethod)
-                .collect(Collectors.toList()); //get the methods in parallel, sacrificing null-safety
-//        assert vrMeth != null;
+        List<Method> vuMeths = new ArrayList<>();
         List<Scheduler> vuSchedulers = new ArrayList<>();
-        for(Method meth : vuMeths) {
-            vuSchedulers.add(meth.getAnnotation(Scheduler.class));
+        for(K vuFunc : vuFuncs) {
+            Action vuAct = functions.get(vuFunc);
+            if(vuAct.doIgnore()) continue;
+            Method vuMeth = vuAct.toMethod();
+            vuMeths.add(vuMeth);
+            vuSchedulers.add(vuMeth.getAnnotation(Scheduler.class));
         }
 
         Concurrent vrAnno = vrMeth.getAnnotation(Concurrent.class);
@@ -608,15 +607,19 @@ public final class Manager<K extends ToMethod> {
         Annotation[][] annotations = method.getParameterAnnotations();
         int numAnno = parameterCount;
         for(int k=0; k<annotations.length; k++) {
-            if(annotations[k].length == 0) {
+            if(Arrays.stream(annotations[k]).noneMatch(arg -> arg instanceof Supplied)) {
                 paramMkdSupplied[k] = false;
             }
-            for(int i=0; i<annotations[k].length; i++) {
-                if(annotations[k][i] instanceof Supplied) {
-                    numAnno--;
-                    paramMkdSupplied[k] = true;
-                }
+            else {
+                numAnno--;
+                paramMkdSupplied[k] = true;
             }
+//            for(int i=0; i<annotations[k].length; i++) {
+//                if(annotations[k][i] instanceof Supplied) {
+//                    numAnno--;
+//                    paramMkdSupplied[k] = true;
+//                }
+//            }
         }
         //Fetch the automatic parameters, erroring if it is unable to find arguments which are Supplied
         for(int i=0; i<parameterCount; i++) {
@@ -652,6 +655,7 @@ public final class Manager<K extends ToMethod> {
         return params;
     }
 
+
     /**
      * Wait for all given tasks to complete before continuing, allowing a Concurrent function
      * to wait without being marked as Blocking. This will wait a maximum of 10 seconds.
@@ -666,7 +670,7 @@ public final class Manager<K extends ToMethod> {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        restartPool();
+        restartPools();
         return this;
     }
 
@@ -679,9 +683,6 @@ public final class Manager<K extends ToMethod> {
         long runAfter = schedule.runAfter();
         TimeUnit unit = schedule.unit();
 
-//        Object[] args = Arrays.stream(strings)
-//                .map(strParameters::get)
-//                .toArray();
         Object[] args = new Object[strings.length];
         for(int i=0; i<strings.length; i++) {
             args[i] = strParameters.get(strings[i]);
@@ -697,8 +698,21 @@ public final class Manager<K extends ToMethod> {
         }
     }
 
-    private void restartPool() {
+    private void restartPools() {
         pool = new ForkJoinPool(numThreads);
+        delayPool = new ScheduledThreadPoolExecutor(numThreads/2);
+    }
+
+    public void displayPoolStatistics() {
+        System.out.println("\033[" +
+                "Targeted # of active threads   : "   + pool.getParallelism() +
+                "\n# Threads stealing/executing   : " + pool.getActiveThreadCount() +
+                "\n# Threads not blocking/waiting : " + pool.getRunningThreadCount() +
+                "\n# Tasks waiting for execution  : " + pool.getQueuedSubmissionCount() +
+                "\n# Tasks in worker thread queues: " + pool.getQueuedTaskCount() +
+                "\n# Tasks stolen                 : " + pool.getStealCount() +
+                "\n"
+        );
     }
 
     //**********************************************************************************************
@@ -853,7 +867,7 @@ public final class Manager<K extends ToMethod> {
             return new Manager<>(this);
         }
     }
-
+    //**********************************************************************************************
     /**
      * Actions serve to hold {@code K}s in order to manager their ability to be executed. It holds a Semaphore
      * and the action along with some utility methods.
@@ -873,7 +887,6 @@ public final class Manager<K extends ToMethod> {
             available = new Semaphore(1, true);
             this.action = action;
             Method actionM = methods.get(action);
-
             assert actionM != null;
             if(Objects.isNull(actionM)) {
                 throw new UnownedMethodException("Failed to find function with key " + action +
@@ -881,6 +894,8 @@ public final class Manager<K extends ToMethod> {
                         "\n\tDid you ensure to update the use sites of your functions?"+
                         "\n\tDid you ensure to update the ToMethod function?");
             }
+
+
             Concurrent actionAnno = actionM.getAnnotation(Concurrent.class);
             assert actionAnno != null;
             if(Objects.isNull(actionAnno))
@@ -932,5 +947,6 @@ public final class Manager<K extends ToMethod> {
         public boolean doIgnore() {
             return available.availablePermits() == 0 && ignoreAsyncCall;
         }
+
     }
 }
